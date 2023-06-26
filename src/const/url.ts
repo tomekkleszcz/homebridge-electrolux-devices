@@ -1,0 +1,1 @@
+export const APPLIANCE_API_URL = 'https://api.eu.ocp.electrolux.one/appliance/api/v2';
