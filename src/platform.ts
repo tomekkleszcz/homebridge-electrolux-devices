@@ -9,9 +9,17 @@ import {
 } from 'homebridge';
 
 import {PLATFORM_NAME, PLUGIN_NAME} from './settings';
-import {AC} from './accessories/ac';
-import { axiosAppliance } from './services/axios';
-import { Appliances } from './definitions/appliances';
+import {
+    axiosAppliance,
+    axiosAuth
+} from './services/axios';
+import {Appliances} from './definitions/appliances';
+import {DEVICES} from './const/devices';
+import {ACCOUNTS_API_KEY} from './const/apiKey';
+import Gigya from 'gigya';
+import { TokenResponse } from './definitions/auth';
+import { ElectroluxAccessoryController } from './accessories/controller';
+import { ElectroluxAccessory } from './accessories/accessory';
 
 /**
  * HomebridgePlatform
@@ -23,8 +31,13 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     public readonly Characteristic: typeof Characteristic =
         this.api.hap.Characteristic;
 
-    // this is used to track restored cached accessories
-    public readonly accessories: PlatformAccessory[] = [];
+    public readonly accessories: ElectroluxAccessory[] = [];
+
+    accessToken = '';
+    private refreshToken = '';
+    tokenExpirationDate = 0;
+
+    private pollingInterval: NodeJS.Timeout | null = null;
 
     constructor(
         public readonly log: Logger,
@@ -37,10 +50,24 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         // Dynamic Platform plugins should only register new accessories after this event was fired,
         // in order to ensure they weren't added to homebridge already. This event can also be used
         // to start discovery of new accessories.
-        this.api.on('didFinishLaunching', () => {
-            log.debug('Executed didFinishLaunching callback');
+        this.api.on('didFinishLaunching', async () => {
+            if (!this.config.refreshToken) {
+                await this.signIn();
+            } else {
+                this.refreshToken = this.config.refreshToken;
+                await this.refreshAccessToken();
+            }
+
             // run the method to discover / register your devices as accessories
-            this.discoverDevices();
+            await this.discoverDevices();
+
+            this.pollingInterval = setInterval(this.pollStatus.bind(this), (this.config.pollingInterval || 10) * 1000);
+        });
+
+        this.api.on('shutdown', () => {
+            if (this.pollingInterval) {
+                clearInterval(this.pollingInterval);
+            }
         });
     }
 
@@ -48,11 +75,81 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
      * This function is invoked when homebridge restores cached accessories from disk at startup.
      * It should be used to setup event handlers for characteristics and update respective values.
      */
-    configureAccessory(accessory: PlatformAccessory) {
+    configureAccessory(accessory: PlatformAccessory<ElectroluxAccessoryController>) {
         this.log.info('Loading accessory from cache:', accessory.displayName);
 
         // add the restored accessory to the accessories cache so we can track if it has already been registered
-        this.accessories.push(accessory);
+        this.accessories.push(new ElectroluxAccessory(accessory));
+    }
+
+    async signIn() {
+        this.log.info('Signing in to Electrolux...');
+
+        try {
+            const gigya = new Gigya(ACCOUNTS_API_KEY, 'eu1');
+            const loginResponse = await gigya.accounts.login({
+                loginID: this.config.email,
+                password: this.config.password,
+                targetEnv: 'mobile'
+            });
+
+            const jwtResponse = await gigya.accounts.getJWT({
+                targetUID: loginResponse.UID,
+                fields: 'country',
+                oauth_token: loginResponse.sessionInfo?.sessionToken,
+                secret: loginResponse.sessionInfo?.sessionSecret
+            });
+
+            const tokenResponse = await axiosAuth.post<TokenResponse>(
+                '/token',
+                {
+                    grantType:
+                        'urn:ietf:params:oauth:grant-type:token-exchange',
+                    clientId: 'ElxOneApp',
+                    idToken: jwtResponse.id_token,
+                    scope: ''
+                },
+                {
+                    headers: {
+                        'Origin-Country-Code': 'PL'
+                    }
+                }
+            );
+
+            this.accessToken = tokenResponse.data.accessToken;
+            this.refreshToken = tokenResponse.data.refreshToken;
+            this.tokenExpirationDate = Date.now() + tokenResponse.data.expiresIn * 1000;
+
+            this.log.info('Signed in to Electrolux!');
+        } catch (e) {
+            this.log.warn('Couldn\'t not sign in to Electrolux!');
+        }
+    }
+
+    async refreshAccessToken() {
+        this.log.info('Refreshing access token...');
+
+        const response = await axiosAuth.post<TokenResponse>('/token', {
+            grantType: 'refresh_token',
+            clientId: 'ElxOneApp',
+            refreshToken: this.refreshToken,
+            scope: ''
+        });
+
+        this.accessToken = response.data.accessToken;
+        this.refreshToken = response.data.refreshToken;
+        this.tokenExpirationDate = Date.now() + response.data.expiresIn * 1000;
+
+        this.log.info('Access token refreshed!');
+    }
+
+    private async getAppliances() {
+        const response = await axiosAppliance.get<Appliances>('/appliances', {
+            headers: {
+                Authorization: `Bearer ${this.accessToken}`
+            }
+        });
+        return response.data;
     }
 
     /**
@@ -61,39 +158,80 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
      * must not be registered again to prevent "duplicate UUID" errors.
      */
     async discoverDevices() {
-        const response = await axiosAppliance.get<Appliances>('/appliances', {
-            headers: {
-                'Authorization': `Bearer ${this.config.accessToken}`
-            }
-        });
+        this.log.info('Discovering devices...');
 
-        response.data.map((appliance) => {
-            if(appliance.applianceData.modelName !== 'Azul') {
+        const appliances = await this.getAppliances();
+
+        appliances.map((appliance) => {
+            if (!DEVICES[appliance.applianceData.modelName]) {
+                this.log.warn(
+                    'Accessory not found for model: ',
+                    appliance.applianceData.modelName
+                );
                 return;
             }
 
             const uuid = this.api.hap.uuid.generate(appliance.applianceId);
 
-            const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+            const existingAccessory = this.accessories.find(
+                (accessory) => accessory.platformAccessory.UUID === uuid
+            );
 
-            if(existingAccessory) {
-                this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-                new AC(this, existingAccessory, appliance);
+            if (existingAccessory) {
+                this.log.info(
+                    'Restoring existing accessory from cache:',
+                    existingAccessory.platformAccessory.displayName
+                );
+                existingAccessory.controller = new DEVICES[appliance.applianceData.modelName](this, existingAccessory.platformAccessory, appliance);
                 return;
             }
 
-            this.log.info('Adding new accessory:', appliance.applianceData.applianceName);
+            this.log.info(
+                'Adding new accessory:',
+                appliance.applianceData.applianceName
+            );
 
-            const accessory = new this.api.platformAccessory(
+            const platformAccessory = new this.api.platformAccessory(
                 appliance.applianceData.applianceName,
                 uuid
             );
+            const accessory = new ElectroluxAccessory(
+                platformAccessory,
+                new DEVICES[appliance.applianceData.modelName](this, platformAccessory, appliance)
+            );
+            this.accessories.push(accessory);
 
-            accessory.context.appliance = appliance;
-
-            new AC(this, accessory, appliance);
-
-            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
+                platformAccessory
+            ]);
         });
+
+        this.log.info('Devices discovered!');
     }
+
+    async pollStatus() {
+        try {
+            this.log.info('Polling appliances status...');
+
+            const appliances = await this.getAppliances();
+
+            appliances.map((appliance) => {
+                const uuid = this.api.hap.uuid.generate(appliance.applianceId);
+
+                const existingAccessory = this.accessories.find(
+                    (accessory) => accessory.platformAccessory.UUID === uuid
+                );
+                if(!existingAccessory) {
+                    return;
+                }
+
+                existingAccessory.controller?.update(appliance);
+            });
+
+            this.log.info('Appliances status polled!');
+        } catch(err) {
+            this.log.warn('Polling error: ', err);
+        }
+    }
+
 }
