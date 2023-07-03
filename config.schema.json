@@ -17,7 +17,7 @@
                 "required": true,
                 "default": ""
             },
-            "interval": {
+            "pollingInterval": {
                 "title": "Polling interval",
                 "type": "number",
                 "required": false,
