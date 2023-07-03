@@ -1,5 +1,4 @@
 {
-    "private": true,
     "displayName": "Homebridge Electrolux Devices",
     "name": "homebridge-electrolux-devices",
     "version": "0.0.1",
