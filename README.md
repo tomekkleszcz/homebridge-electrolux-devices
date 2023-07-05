@@ -21,5 +21,6 @@ This is a plugin for connecting Electrolux devices which are controlled by the [
 ## 🌡️ Supported devices
 - Comfort 600 air conditioner
 - Well A7 air purifier
+- Pure A9/AX 9 air purifier
 
 If your device is not on the list, please create the issue. I'll be more than happy to implement the support for your device. 😄
