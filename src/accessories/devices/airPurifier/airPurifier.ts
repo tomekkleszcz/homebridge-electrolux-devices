@@ -1,14 +1,13 @@
 import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
 
-import { ElectroluxDevicesPlatform } from '../../platform';
-import { Appliance } from '../../definitions/appliance';
-import { ElectroluxAccessoryController } from '../controller';
+import { ElectroluxDevicesPlatform } from '../../../platform';
+import { Appliance } from '../../../definitions/appliance';
+import { ElectroluxAccessoryController } from '../../controller';
 
-export class WellA7 extends ElectroluxAccessoryController {
+export class AirPurifier extends ElectroluxAccessoryController {
 
     private airPurifierService: Service;
     private airQualityService: Service;
-    private carbonDioxideSensorService: Service;
     private humiditySensorService: Service;
     private temperatureSensorService: Service;
 
@@ -64,15 +63,6 @@ export class WellA7 extends ElectroluxAccessoryController {
 
         this.airQualityService.getCharacteristic(this.platform.Characteristic.VOCDensity)
             .onGet(this.getVOCDensity.bind(this));
-
-        this.carbonDioxideSensorService = this.accessory.getService(this.platform.Service.CarbonDioxideSensor) ||
-            this.accessory.addService(this.platform.Service.CarbonDioxideSensor);
-
-        this.carbonDioxideSensorService.getCharacteristic(this.platform.Characteristic.CarbonDioxideDetected)
-            .onGet(this.getCarbonDioxideDetected.bind(this));
-
-        this.carbonDioxideSensorService.getCharacteristic(this.platform.Characteristic.CarbonDioxideLevel)
-            .onGet(this.getCarbonDioxideLevel.bind(this));
 
         this.humiditySensorService = this.accessory.getService(this.platform.Service.HumiditySensor) ||
             this.accessory.addService(this.platform.Service.HumiditySensor);
@@ -243,15 +233,6 @@ export class WellA7 extends ElectroluxAccessoryController {
         return this.appliance.properties.reported.TVOC;
     }
 
-    async getCarbonDioxideDetected(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.ECO2 > 1000 ?
-            this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL :
-            this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL;
-    }
-
-    async getCarbonDioxideLevel(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.ECO2;
-    }
 
     async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
         return this.appliance.properties.reported.Humidity;
@@ -261,7 +242,7 @@ export class WellA7 extends ElectroluxAccessoryController {
         return this.appliance.properties.reported.Temp;
     }
 
-    update(appliance: Appliance) {
+    async update(appliance: Appliance) {
         this.appliance = appliance;
 
         switch(this.appliance.properties.reported.Workmode) {
@@ -318,6 +299,33 @@ export class WellA7 extends ElectroluxAccessoryController {
         this.airPurifierService.updateCharacteristic(
             this.platform.Characteristic.RotationSpeed,
             this.appliance.properties.reported.Fanspeed * 20
+        );
+
+        this.airQualityService.updateCharacteristic(
+            this.platform.Characteristic.AirQuality,
+            await this.getAirQuality()
+        );
+        this.airQualityService.updateCharacteristic(
+            this.platform.Characteristic.PM2_5Density,
+            this.appliance.properties.reported.PM2_5
+        );
+        this.airQualityService.updateCharacteristic(
+            this.platform.Characteristic.PM10Density,
+            this.appliance.properties.reported.PM10
+        );
+        this.airQualityService.updateCharacteristic(
+            this.platform.Characteristic.VOCDensity,
+            this.appliance.properties.reported.TVOC
+        );
+
+        this.humiditySensorService.updateCharacteristic(
+            this.platform.Characteristic.CurrentRelativeHumidity,
+            this.appliance.properties.reported.Humidity
+        );
+
+        this.temperatureSensorService.updateCharacteristic(
+            this.platform.Characteristic.CurrentTemperature,
+            this.appliance.properties.reported.Temp
         );
     }
 

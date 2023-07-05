@@ -23,7 +23,7 @@ type ApplianceProperties = {
     filterState: State;
     ambientTemperatureC: number;
 
-    /* Well A7 */
+    /* Air purifiers */
     Workmode: WorkMode;
     Fanspeed: number;
     Ionizer: boolean;
@@ -34,8 +34,13 @@ type ApplianceProperties = {
     PM10: number;
     Temp: number;
     Humidity: number;
-    ECO2: number;
     TVOC: number;
+
+    /* Well A7 */
+    ECO2: number;
+
+    /* Pure A9 */
+    CO2: number;
 };
 
 /* Comfort 600 */

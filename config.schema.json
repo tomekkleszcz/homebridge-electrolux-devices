@@ -21,7 +21,7 @@
                 "title": "Polling interval",
                 "type": "number",
                 "required": false,
-                "default": "10"
+                "default": "30"
             }
         }
     }
