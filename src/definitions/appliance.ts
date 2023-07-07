@@ -38,6 +38,9 @@ type ApplianceProperties = {
 
     /* Well A7 */
     ECO2: number;
+
+    /* Pure A9 */
+    CO2: number;
 };
 
 /* Comfort 600 */

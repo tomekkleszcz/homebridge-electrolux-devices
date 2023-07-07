@@ -22,6 +22,12 @@
                 "type": "number",
                 "required": false,
                 "default": "30"
+            },
+            "carbonDioxideSensorAlarmValue": {
+                "title": "Carbon dioxide sensor alarm value",
+                "type": "number",
+                "required": false,
+                "default": "1000"
             }
         }
     }

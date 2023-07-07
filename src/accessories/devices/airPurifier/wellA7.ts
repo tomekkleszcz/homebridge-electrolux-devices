@@ -39,7 +39,7 @@ export class WellA7 extends AirPurifier {
         this.appliance = appliance;
 
         this.carbonDioxideSensorService.updateCharacteristic(
-            this.platform.Characteristic.CarbonDioxideDetected, this.appliance.properties.reported.ECO2 > 1000 ?
+            this.platform.Characteristic.CarbonDioxideDetected, this.appliance.properties.reported.ECO2 > this.platform.config.carbonDioxideSensorAlarmValue ?
                 this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL :
                 this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL
         );
