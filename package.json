@@ -1,7 +1,7 @@
 {
     "displayName": "Homebridge Electrolux Devices",
     "name": "homebridge-electrolux-devices",
-    "version": "0.0.3-beta.2",
+    "version": "0.0.3",
     "description": "Homebridge plugin for Electrolux devices",
     "license": "Apache-2.0",
     "repository": {
