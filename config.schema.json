@@ -17,6 +17,50 @@
                 "required": true,
                 "default": ""
             },
+            "region": {
+                "title": "Region",
+                "type": "string",
+                "required": true,
+                "default": "eu",
+                "oneOf": [
+                    {
+                        "title": "Europe",
+                        "enum": [
+                            "eu"
+                        ]
+                    },
+                    {
+                        "title": "United States",
+                        "enum": [
+                            "us"
+                        ]
+                    },
+                    {
+                        "title": "Australia",
+                        "enum": [
+                            "au"
+                        ]
+                    },
+                    {
+                        "title": "Russia",
+                        "enum": [
+                            "ru"
+                        ]
+                    },
+                    {
+                        "title": "China",
+                        "enum": [
+                            "cn"
+                        ]
+                    },
+                    {
+                        "title": "Israel",
+                        "enum": [
+                            "il"
+                        ]
+                    }
+                ]
+            },
             "pollingInterval": {
                 "title": "Polling interval",
                 "type": "number",

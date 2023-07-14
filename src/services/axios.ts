@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { API_KEY } from '../const/apiKey';
 import { APPLIANCE_API_URL, AUTH_API_URL } from '../const/url';
+import { Region } from '../definitions/region';
 
-export const axiosAuth = axios.create({
-    baseURL: AUTH_API_URL,
+export const axiosAuth = (region: Region) => axios.create({
+    baseURL: AUTH_API_URL[region],
     headers: {
         'Accept': 'application/json',
         'Accept-Charset': 'utf-8',

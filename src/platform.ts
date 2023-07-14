@@ -20,6 +20,7 @@ import Gigya from 'gigya';
 import { TokenResponse } from './definitions/auth';
 import { ElectroluxAccessoryController } from './accessories/controller';
 import { ElectroluxAccessory } from './accessories/accessory';
+import { Region } from './definitions/region';
 
 /**
  * HomebridgePlatform
@@ -85,8 +86,10 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     async signIn() {
         this.log.info('Signing in to Electrolux...');
 
+        const region: Region = this.config.region || 'eu';
+
         try {
-            const gigya = new Gigya(ACCOUNTS_API_KEY, 'eu1');
+            const gigya = new Gigya(ACCOUNTS_API_KEY, `${region}1`);
             const loginResponse = await gigya.accounts.login({
                 loginID: this.config.email,
                 password: this.config.password,
@@ -100,7 +103,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 secret: loginResponse.sessionInfo?.sessionSecret
             });
 
-            const tokenResponse = await axiosAuth.post<TokenResponse>(
+            const tokenResponse = await axiosAuth(region).post<TokenResponse>(
                 '/token',
                 {
                     grantType:
@@ -129,7 +132,9 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     async refreshAccessToken() {
         this.log.info('Refreshing access token...');
 
-        const response = await axiosAuth.post<TokenResponse>('/token', {
+        const region: Region = this.config.region || 'eu';
+
+        const response = await axiosAuth(region).post<TokenResponse>('/token', {
             grantType: 'refresh_token',
             clientId: 'ElxOneApp',
             refreshToken: this.refreshToken,
