@@ -20,7 +20,8 @@
         "lint": "eslint src/**.ts --max-warnings=0",
         "watch": "npm run build && npm link && nodemon",
         "build": "rimraf ./dist && tsc",
-        "prepublishOnly": "npm run lint && npm run build"
+        "prepublishOnly": "npm run lint && npm run build",
+        "format": "prettier --write '**/*.{ts,md,json,yaml}'"
     },
     "keywords": [
         "homebridge-plugin"
@@ -40,6 +41,7 @@
         "eslint": "^8.0.1",
         "homebridge": "^1.3.5",
         "nodemon": "^2.0.20",
+        "prettier": "^3.0.2",
         "rimraf": "^3.0.2",
         "ts-node": "^10.3.0",
         "typescript": "^4.4.4"
