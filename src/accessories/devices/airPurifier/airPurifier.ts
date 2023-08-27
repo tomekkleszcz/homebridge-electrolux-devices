@@ -256,6 +256,23 @@ export class AirPurifier extends ElectroluxAccessoryController {
         return this.appliance.properties.reported.TVOC;
     }
 
+    async getCarbonDioxideLevel(): Promise<CharacteristicValue> {
+        const reported = this.appliance.properties.reported;
+        if (reported.ECO2 !== undefined && reported.CO2 !== undefined) {
+            if (reported.$metadata.ECO2!.$lastUpdated > reported.$metadata.CO2!.$lastUpdated) {
+                return reported.ECO2;
+            }
+            return reported.CO2;
+        }
+        if (reported.ECO2 !== undefined) {
+            return reported.ECO2;
+        }
+        if (reported.CO2 !== undefined) {
+            return reported.CO2;
+        }
+        return -1;
+    }
+
     async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
         return this.appliance.properties.reported.Humidity;
     }

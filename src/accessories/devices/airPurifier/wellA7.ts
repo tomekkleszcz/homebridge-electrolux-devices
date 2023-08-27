@@ -28,13 +28,9 @@ export class WellA7 extends AirPurifier {
     }
 
     async getCarbonDioxideDetected(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.ECO2 > 1000
+        return (await this.getCarbonDioxideLevel()) > this.platform.config.carbonDioxideSensorAlarmValue
             ? this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
             : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL;
-    }
-
-    async getCarbonDioxideLevel(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.ECO2;
     }
 
     async update(appliance: Appliance) {
@@ -42,13 +38,11 @@ export class WellA7 extends AirPurifier {
 
         this.carbonDioxideSensorService.updateCharacteristic(
             this.platform.Characteristic.CarbonDioxideDetected,
-            this.appliance.properties.reported.ECO2 > this.platform.config.carbonDioxideSensorAlarmValue
-                ? this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
-                : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL,
+            await this.getCarbonDioxideDetected(),
         );
         this.carbonDioxideSensorService.updateCharacteristic(
             this.platform.Characteristic.CarbonDioxideLevel,
-            this.appliance.properties.reported.ECO2,
+            await this.getCarbonDioxideLevel(),
         );
     }
 }
