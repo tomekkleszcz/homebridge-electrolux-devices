@@ -33,7 +33,8 @@ export class AirPurifier extends ElectroluxAccessoryController {
             this.appliance.applianceData.applianceName,
         );
 
-        this.airPurifierService.getCharacteristic(this.platform.Characteristic.RotationSpeed).props.minStep = 20;
+        this.airPurifierService.getCharacteristic(this.platform.Characteristic.RotationSpeed).props.minStep =
+            100 / this.maxFanspeed;
 
         this.airPurifierService
             .getCharacteristic(this.platform.Characteristic.Active)
@@ -125,7 +126,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
             this.airPurifierService.updateCharacteristic(
                 this.platform.Characteristic.RotationSpeed,
-                value === this.platform.Characteristic.Active.ACTIVE ? this.appliance.properties.reported.Fanspeed : 0,
+                value === this.platform.Characteristic.Active.ACTIVE ? this.fanspeedInPercent() : 0,
             );
         }
 
@@ -326,7 +327,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
         );
         this.airPurifierService.updateCharacteristic(
             this.platform.Characteristic.RotationSpeed,
-            this.appliance.properties.reported.Fanspeed * 20,
+            this.fanspeedInPercent(),
         );
 
         this.airQualityService.updateCharacteristic(
