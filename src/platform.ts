@@ -10,13 +10,14 @@ import {
 
 import {PLATFORM_NAME, PLUGIN_NAME} from './settings';
 import {axiosAppliance, axiosAuth} from './services/axios';
-import {Appliances} from './definitions/appliances';
+import {Appliances, AppliancesInfo} from './definitions/appliances';
 import {DEVICES} from './const/devices';
 import {ACCOUNTS_API_KEY} from './const/apiKey';
 import Gigya from 'gigya';
 import {TokenResponse} from './definitions/auth';
-import {ElectroluxAccessoryController} from './accessories/controller';
+import {ElectroluxAccessoryContext} from './accessories/controller';
 import {ElectroluxAccessory} from './accessories/accessory';
+import {Appliance} from './definitions/appliance';
 
 /**
  * HomebridgePlatform
@@ -71,7 +72,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
      * This function is invoked when homebridge restores cached accessories from disk at startup.
      * It should be used to setup event handlers for characteristics and update respective values.
      */
-    configureAccessory(accessory: PlatformAccessory<ElectroluxAccessoryController>) {
+    configureAccessory(accessory: PlatformAccessory<ElectroluxAccessoryContext>) {
         this.log.info('Loading accessory from cache:', accessory.displayName);
 
         // add the restored accessory to the accessories cache so we can track if it has already been registered
@@ -147,6 +148,21 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         return response.data;
     }
 
+    private async getAppliancesInfo(applianceIds: string[]) {
+        const response = await axiosAppliance.post<AppliancesInfo>(
+            '/appliances/info',
+            {
+                applianceIds,
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${this.accessToken}`,
+                },
+            },
+        );
+        return response.data;
+    }
+
     /**
      * This is an example method showing how to register discovered accessories.
      * Accessories must only be registered once, previously created accessories
@@ -156,41 +172,58 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         this.log.info('Discovering devices...');
 
         const appliances = await this.getAppliances();
+        const newAppliances = appliances
+            .map((appliance) => {
+                if (!DEVICES[appliance.applianceData.modelName]) {
+                    this.log.warn('Accessory not found for model: ', appliance.applianceData.modelName);
+                    return;
+                }
 
-        appliances.map((appliance) => {
-            if (!DEVICES[appliance.applianceData.modelName]) {
-                this.log.warn('Accessory not found for model: ', appliance.applianceData.modelName);
-                return;
-            }
+                const uuid = this.api.hap.uuid.generate(appliance.applianceId);
 
-            const uuid = this.api.hap.uuid.generate(appliance.applianceId);
-
-            const existingAccessory = this.accessories.find((accessory) => accessory.platformAccessory.UUID === uuid);
-
-            if (existingAccessory) {
-                this.log.info(
-                    'Restoring existing accessory from cache:',
-                    existingAccessory.platformAccessory.displayName,
+                const existingAccessory = this.accessories.find(
+                    (accessory) => accessory.platformAccessory.UUID === uuid,
                 );
-                existingAccessory.controller = new DEVICES[appliance.applianceData.modelName](
-                    this,
-                    existingAccessory.platformAccessory,
-                    appliance,
+
+                if (existingAccessory) {
+                    this.log.info(
+                        'Restoring existing accessory from cache:',
+                        existingAccessory.platformAccessory.displayName,
+                    );
+                    existingAccessory.controller = new DEVICES[appliance.applianceData.modelName](
+                        this,
+                        existingAccessory.platformAccessory,
+                        appliance,
+                    );
+                    return;
+                }
+
+                return {uuid, appliance};
+            })
+            .filter((entry): entry is {uuid: string; appliance: Appliance} => !!entry);
+
+        if (newAppliances.length > 0) {
+            const applianceIds = newAppliances.map(({appliance}) => appliance.applianceId);
+            const appliancesInfo = await this.getAppliancesInfo(applianceIds);
+
+            for (const {uuid, appliance} of newAppliances) {
+                this.log.info('Adding new accessory:', appliance.applianceData.applianceName);
+
+                const info = appliancesInfo.find((info) => info.pnc === pnc(appliance.applianceId));
+                const platformAccessory = new this.api.platformAccessory<ElectroluxAccessoryContext>(
+                    appliance.applianceData.applianceName,
+                    uuid,
                 );
-                return;
+                platformAccessory.context.info = info;
+                const accessory = new ElectroluxAccessory(
+                    platformAccessory,
+                    new DEVICES[appliance.applianceData.modelName](this, platformAccessory, appliance),
+                );
+                this.accessories.push(accessory);
+
+                this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [platformAccessory]);
             }
-
-            this.log.info('Adding new accessory:', appliance.applianceData.applianceName);
-
-            const platformAccessory = new this.api.platformAccessory(appliance.applianceData.applianceName, uuid);
-            const accessory = new ElectroluxAccessory(
-                platformAccessory,
-                new DEVICES[appliance.applianceData.modelName](this, platformAccessory, appliance),
-            );
-            this.accessories.push(accessory);
-
-            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [platformAccessory]);
-        });
+        }
 
         this.log.info('Devices discovered!');
     }
@@ -219,4 +252,12 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             this.log.warn('Polling error: ', err);
         }
     }
+}
+
+function pnc(applianceId: string): string {
+    if (applianceId.length < 9) {
+        return applianceId;
+    }
+    // Example: 950011538111111115087076 -> 950011538
+    return applianceId.slice(0, 9);
 }

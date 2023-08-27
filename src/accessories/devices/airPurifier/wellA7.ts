@@ -1,7 +1,7 @@
 import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
 import {ElectroluxDevicesPlatform} from '../../../platform';
 import {AirPurifier} from './airPurifier';
-import {ElectroluxAccessoryController} from '../../controller';
+import {ElectroluxAccessoryContext} from '../../controller';
 import {Appliance} from '../../../definitions/appliance';
 
 export class WellA7 extends AirPurifier {
@@ -9,7 +9,7 @@ export class WellA7 extends AirPurifier {
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
-        readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
+        readonly _accessory: PlatformAccessory<ElectroluxAccessoryContext>,
         readonly _appliance: Appliance,
     ) {
         super(_platform, _accessory, _appliance);

@@ -23,9 +23,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
 
         this.accessory
             .getService(this.platform.Service.AccessoryInformation)!
-            .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Electrolux')
+            .setCharacteristic(this.platform.Characteristic.Manufacturer, this.manufacturer())
             .setCharacteristic(this.platform.Characteristic.Model, this.appliance.applianceData.modelName)
-            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.appliance.applianceId);
+            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.serial());
 
         this.service =
             this.accessory.getService(this.platform.Service.HeaterCooler) ||

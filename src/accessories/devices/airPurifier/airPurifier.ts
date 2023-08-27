@@ -2,7 +2,7 @@ import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
 
 import {ElectroluxDevicesPlatform} from '../../../platform';
 import {Appliance} from '../../../definitions/appliance';
-import {ElectroluxAccessoryController} from '../../controller';
+import {ElectroluxAccessoryContext, ElectroluxAccessoryController} from '../../controller';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
@@ -12,16 +12,20 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
-        readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
+        readonly _accessory: PlatformAccessory<ElectroluxAccessoryContext>,
         readonly _appliance: Appliance,
     ) {
         super(_platform, _accessory, _appliance);
 
         this.accessory
             .getService(this.platform.Service.AccessoryInformation)!
-            .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Electrolux')
+            .setCharacteristic(this.platform.Characteristic.Manufacturer, this.manufacturer())
             .setCharacteristic(this.platform.Characteristic.Model, this.appliance.applianceData.modelName)
-            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.appliance.applianceId);
+            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.serial())
+            .setCharacteristic(
+                this.platform.Characteristic.FirmwareRevision,
+                this.appliance.properties.reported.FrmVer_NIU,
+            );
 
         this.airPurifierService =
             this.accessory.getService(this.platform.Service.AirPurifier) ||
