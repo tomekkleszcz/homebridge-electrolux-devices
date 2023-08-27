@@ -139,7 +139,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     }
 
     private async getAppliances() {
-        const response = await axiosAppliance.get<Appliances>('/appliances', {
+        const response = await axiosAppliance.get<Appliances>('/appliances?includeMetadata=true', {
             headers: {
                 Authorization: `Bearer ${this.accessToken}`,
             },
