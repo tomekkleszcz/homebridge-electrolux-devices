@@ -12,7 +12,7 @@ export class WellA7 extends AirPurifier {
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
         readonly _appliance: Appliance,
     ) {
-        super(_platform, _accessory, _appliance);
+        super(_platform, _accessory, _appliance, 5);
 
         this.carbonDioxideSensorService =
             this.accessory.getService(this.platform.Service.CarbonDioxideSensor) ||

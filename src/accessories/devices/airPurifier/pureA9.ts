@@ -12,7 +12,7 @@ export class PureA9 extends AirPurifier {
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
         readonly _appliance: Appliance,
     ) {
-        super(_platform, _accessory, _appliance);
+        super(_platform, _accessory, _appliance, 9);
 
         this.carbonDioxideSensorService =
             this.accessory.getService(this.platform.Service.CarbonDioxideSensor) ||

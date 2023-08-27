@@ -14,6 +14,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
         readonly _appliance: Appliance,
+        private maxFanspeed: number,
     ) {
         super(_platform, _accessory, _appliance);
 
@@ -191,8 +192,12 @@ export class AirPurifier extends ElectroluxAccessoryController {
             value === this.platform.Characteristic.LockPhysicalControls.CONTROL_LOCK_ENABLED;
     }
 
+    private fanspeedInPercent() {
+        return Math.round(100 * (this.appliance.properties.reported.Fanspeed / this.maxFanspeed));
+    }
+
     async getRotationSpeed(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Fanspeed * 20;
+        return this.fanspeedInPercent();
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
@@ -200,7 +205,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
             setTimeout(() => {
                 this.airPurifierService.updateCharacteristic(
                     this.platform.Characteristic.RotationSpeed,
-                    this.appliance.properties.reported.Fanspeed * 20,
+                    this.fanspeedInPercent(),
                 );
             }, 100);
             return;
@@ -223,11 +228,12 @@ export class AirPurifier extends ElectroluxAccessoryController {
             return;
         }
 
+        const fanspeed = Math.round((value as number) * (this.maxFanspeed / 100));
         await this.sendCommand({
-            Fanspeed: Math.round((value as number) / 20),
+            Fanspeed: fanspeed,
         });
 
-        this.appliance.properties.reported.Fanspeed = Math.round((value as number) / 20);
+        this.appliance.properties.reported.Fanspeed = fanspeed;
     }
 
     async getAirQuality(): Promise<CharacteristicValue> {
