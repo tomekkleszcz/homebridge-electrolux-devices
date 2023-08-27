@@ -28,6 +28,12 @@
         "type": "number",
         "required": false,
         "default": "1000"
+      },
+      "vocMolecularWeight": {
+        "title": "Molecular weight of gas, in g/mol. Used for TVOC (ppb) conversion to VOC density (μg/m^3). Formaldehyde is 30.026 g/mol.",
+        "type": "number",
+        "required": false,
+        "default": "30.026"
       }
     }
   }
