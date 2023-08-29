@@ -1,4 +1,4 @@
-import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
+import {PlatformAccessory, Service} from 'homebridge';
 import {AirPurifier} from './airPurifier';
 import {ElectroluxDevicesPlatform} from '../../../platform';
 import {ElectroluxAccessoryController} from '../../controller';
@@ -25,12 +25,6 @@ export class PureA9 extends AirPurifier {
         this.carbonDioxideSensorService
             .getCharacteristic(this.platform.Characteristic.CarbonDioxideLevel)
             .onGet(() => this.getCarbonDioxideLevel());
-    }
-
-    async getCarbonDioxideDetected(): Promise<CharacteristicValue> {
-        return (await this.getCarbonDioxideLevel()) > this.platform.config.carbonDioxideSensorAlarmValue
-            ? this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
-            : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL;
     }
 
     async update(appliance: Appliance) {

@@ -20,17 +20,11 @@ export class WellA7 extends AirPurifier {
 
         this.carbonDioxideSensorService
             .getCharacteristic(this.platform.Characteristic.CarbonDioxideDetected)
-            .onGet(this.getCarbonDioxideDetected.bind(this));
+            .onGet(() => this.getCarbonDioxideDetected());
 
         this.carbonDioxideSensorService
             .getCharacteristic(this.platform.Characteristic.CarbonDioxideLevel)
-            .onGet(this.getCarbonDioxideLevel.bind(this));
-    }
-
-    async getCarbonDioxideDetected(): Promise<CharacteristicValue> {
-        return (await this.getCarbonDioxideLevel()) > this.platform.config.carbonDioxideSensorAlarmValue
-            ? this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
-            : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL;
+            .onGet(() => this.getCarbonDioxideLevel());
     }
 
     async update(appliance: Appliance) {
