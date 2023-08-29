@@ -35,6 +35,7 @@ type ApplianceProperties = {
     Temp: number;
     Humidity: number;
     TVOC: number;
+    FrmVer_NIU: string; // 3.0.1
 
     /* Well A7 */
     ECO2: number;
@@ -58,3 +59,30 @@ type State = 'good';
 
 /* Well A7 */
 type WorkMode = 'Manual' | 'Auto' | 'PowerOff';
+
+/*
+Example payload:
+
+  {
+    "pnc": "950011538",
+    "brand": "ELECTROLUX",
+    "market": "EUROPE",
+    "productArea": "WELLBEING",
+    "deviceType": "AIR_PURIFIER",
+    "project": "HIMALAYA",
+    "model": "A9",
+    "variant": "CADR600",
+    "colour": "DARKGREY"
+  }
+*/
+export interface ApplianceInfo {
+    pnc: string;
+    brand: string;
+    market: string;
+    productArea: string;
+    deviceType: string;
+    project: string;
+    model: string;
+    variant: string;
+    colour: string;
+}
