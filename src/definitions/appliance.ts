@@ -57,4 +57,4 @@ type FanSpeedSetting = 'auto' | 'low' | 'middle' | 'high';
 type State = 'good';
 
 /* Well A7 */
-type WorkMode = 'Manual' | 'Auto' | 'PowerOff';
+export type WorkMode = 'Manual' | 'Auto' | 'PowerOff';

@@ -1,7 +1,7 @@
 import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
 
 import {ElectroluxDevicesPlatform} from '../../../platform';
-import {Appliance} from '../../../definitions/appliance';
+import {Appliance, WorkMode} from '../../../definitions/appliance';
 import {ElectroluxAccessoryController} from '../../controller';
 
 export class AirPurifier extends ElectroluxAccessoryController {
@@ -110,12 +110,12 @@ export class AirPurifier extends ElectroluxAccessoryController {
             (this.appliance.properties.reported.Workmode !== 'PowerOff' &&
                 value === this.platform.Characteristic.Active.INACTIVE)
         ) {
-            this.sendCommand({
-                Workmode: value === this.platform.Characteristic.Active.ACTIVE ? 'Auto' : 'PowerOff',
+            const workMode: WorkMode = value === this.platform.Characteristic.Active.ACTIVE ? 'Auto' : 'PowerOff';
+            await this.sendCommand({
+                Workmode: workMode,
             });
 
-            this.appliance.properties.reported.Workmode =
-                value === this.platform.Characteristic.Active.ACTIVE ? 'Auto' : 'PowerOff';
+            this.appliance.properties.reported.Workmode = workMode;
 
             this.airPurifierService.updateCharacteristic(
                 this.platform.Characteristic.TargetAirPurifierState,
@@ -161,14 +161,9 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async setTargetAirPurifierState(value: CharacteristicValue) {
-        let workMode;
-        switch (value) {
-            case this.platform.Characteristic.TargetAirPurifierState.MANUAL:
-                workMode = 'Manual';
-                break;
-            case this.platform.Characteristic.TargetAirPurifierState.AUTO:
-                workMode = 'Auto';
-                break;
+        const workMode = value === this.platform.Characteristic.TargetAirPurifierState.AUTO ? 'Auto' : 'Manual';
+        if (workMode === this.appliance.properties.reported.Workmode) {
+            return;
         }
 
         await this.sendCommand({
@@ -202,39 +197,37 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
-        if (this.appliance.properties.reported.Workmode === 'Auto') {
-            setTimeout(() => {
-                this.airPurifierService.updateCharacteristic(
-                    this.platform.Characteristic.RotationSpeed,
-                    this.fanspeedInPercent(),
-                );
-            }, 100);
+        // This will be preceded or followed by a call to setActive(0).
+        if (value === 0) {
+            this.appliance.properties.reported.Fanspeed = 1; // As returned by API when the device is off.
+            this.airPurifierService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 0);
             return;
         }
 
-        if (value === 0) {
+        if (this.appliance.properties.reported.Workmode !== 'Manual') {
             await this.sendCommand({
-                Workmode: 'PowerOff',
+                Workmode: 'Manual',
             });
-
-            this.appliance.properties.reported.Workmode = 'PowerOff';
+            this.appliance.properties.reported.Workmode = 'Manual';
             this.airPurifierService.updateCharacteristic(
                 this.platform.Characteristic.CurrentAirPurifierState,
-                this.platform.Characteristic.CurrentAirPurifierState.INACTIVE,
+                this.platform.Characteristic.CurrentAirPurifierState.PURIFYING_AIR,
             );
             this.airPurifierService.updateCharacteristic(
                 this.platform.Characteristic.TargetAirPurifierState,
-                this.platform.Characteristic.TargetAirPurifierState.AUTO,
+                this.platform.Characteristic.TargetAirPurifierState.MANUAL,
             );
-            return;
         }
 
-        const fanspeed = Math.round((value as number) * (this.maxFanspeed / 100));
+        const fanspeed = Math.max(1, Math.round((value as number) * (this.maxFanspeed / 100)));
         await this.sendCommand({
             Fanspeed: fanspeed,
         });
-
         this.appliance.properties.reported.Fanspeed = fanspeed;
+        this.airPurifierService.updateCharacteristic(
+            this.platform.Characteristic.RotationSpeed,
+            this.fanspeedInPercent(),
+        );
     }
 
     async getAirQuality(): Promise<CharacteristicValue> {
