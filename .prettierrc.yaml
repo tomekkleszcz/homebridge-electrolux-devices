@@ -1,0 +1,5 @@
+printWidth: 120
+trailingComma: all
+useTabs: false
+singleQuote: true
+bracketSpacing: false
