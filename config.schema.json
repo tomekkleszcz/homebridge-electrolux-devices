@@ -1,34 +1,34 @@
 {
-    "pluginAlias": "HomebridgeElectroluxDevices",
-    "pluginType": "platform",
-    "singular": true,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "email": {
-                "title": "Email address",
-                "type": "string",
-                "required": true,
-                "default": ""
-            },
-            "password": {
-                "title": "Password",
-                "type": "string",
-                "required": true,
-                "default": ""
-            },
-            "pollingInterval": {
-                "title": "Polling interval",
-                "type": "number",
-                "required": false,
-                "default": "30"
-            },
-            "carbonDioxideSensorAlarmValue": {
-                "title": "Carbon dioxide sensor alarm value",
-                "type": "number",
-                "required": false,
-                "default": "1000"
-            }
-        }
+  "pluginAlias": "HomebridgeElectroluxDevices",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "email": {
+        "title": "Email address",
+        "type": "string",
+        "required": true,
+        "default": ""
+      },
+      "password": {
+        "title": "Password",
+        "type": "string",
+        "required": true,
+        "default": ""
+      },
+      "pollingInterval": {
+        "title": "Polling interval",
+        "type": "number",
+        "required": false,
+        "default": "30"
+      },
+      "carbonDioxideSensorAlarmValue": {
+        "title": "Carbon dioxide sensor alarm value",
+        "type": "number",
+        "required": false,
+        "default": "1000"
+      }
     }
+  }
 }

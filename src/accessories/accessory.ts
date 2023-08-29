@@ -1,15 +1,13 @@
-import { PlatformAccessory } from 'homebridge';
-import { ElectroluxAccessoryController } from './controller';
+import {PlatformAccessory} from 'homebridge';
+import {ElectroluxAccessoryContext, ElectroluxAccessoryController} from './controller';
 
 export class ElectroluxAccessory {
-
     controller?: ElectroluxAccessoryController;
 
     constructor(
-        readonly platformAccessory: PlatformAccessory,
-        controller?: ElectroluxAccessoryController
+        readonly platformAccessory: PlatformAccessory<ElectroluxAccessoryContext>,
+        controller?: ElectroluxAccessoryController,
     ) {
         this.controller = controller;
     }
-
 }
