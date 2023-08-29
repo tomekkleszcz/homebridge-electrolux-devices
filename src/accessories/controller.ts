@@ -24,13 +24,13 @@ export abstract class ElectroluxAccessoryController {
 
     async sendCommand(body: Record<string, CharacteristicValue>): Promise<void> {
         try {
-            if (Date.now() >= this.platform.tokenExpirationDate) {
+            if (this.platform.shouldRefreshAccessToken()) {
                 await this.platform.refreshAccessToken();
             }
 
             await axiosAppliance.put(`/appliances/${this.appliance.applianceId}/command`, body, {
                 headers: {
-                    Authorization: `Bearer ${this.platform.accessToken}`,
+                    Authorization: `Bearer ${this.platform.auth.user.accessToken}`,
                 },
             });
         } catch (error: unknown) {

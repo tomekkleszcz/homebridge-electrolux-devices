@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import {
     API,
     DynamicPlatformPlugin,
@@ -30,9 +32,14 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     public readonly accessories: ElectroluxAccessory[] = [];
 
-    accessToken = '';
-    private refreshToken = '';
-    tokenExpirationDate = 0;
+    private readonly authFile: string;
+    readonly auth = {
+        user: {
+            accessToken: '',
+            refreshToken: '',
+            tokenExpirationDate: 0,
+        },
+    };
 
     private pollingInterval: NodeJS.Timeout | null = null;
 
@@ -41,18 +48,29 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         public readonly config: PlatformConfig,
         public readonly api: API,
     ) {
-        this.log.debug('Finished initializing platform:', this.config.name);
+        this.authFile = path.join(api.user.storagePath(), '.electroluxDevices.json');
+        if (fs.existsSync(this.authFile)) {
+            try {
+                this.log.debug('Loading auth from cache...');
+                const data = fs.readFileSync(this.authFile, 'utf8');
+                const auth = JSON.parse(data);
+                this.auth = auth;
+            } catch (e) {
+                this.log.warn('Could not load auth from cache!');
+            }
+        }
 
         // When this event is fired it means Homebridge has restored all cached accessories from disk.
         // Dynamic Platform plugins should only register new accessories after this event was fired,
         // in order to ensure they weren't added to homebridge already. This event can also be used
         // to start discovery of new accessories.
         this.api.on('didFinishLaunching', async () => {
-            if (!this.config.refreshToken) {
+            if (this.shouldRefreshAccessToken()) {
+                await this.refreshAccessToken();
+            } else if (this.auth.user.accessToken === '') {
                 await this.signIn();
             } else {
-                this.refreshToken = this.config.refreshToken;
-                await this.refreshAccessToken();
+                this.log.info('Using cached access token...');
             }
 
             // run the method to discover / register your devices as accessories
@@ -97,7 +115,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 secret: loginResponse.sessionInfo?.sessionSecret,
             });
 
-            const tokenResponse = await axiosAuth.post<TokenResponse>(
+            const response = await axiosAuth.post<TokenResponse>(
                 '/token',
                 {
                     grantType: 'urn:ietf:params:oauth:grant-type:token-exchange',
@@ -112,14 +130,16 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 },
             );
 
-            this.accessToken = tokenResponse.data.accessToken;
-            this.refreshToken = tokenResponse.data.refreshToken;
-            this.tokenExpirationDate = Date.now() + tokenResponse.data.expiresIn * 1000;
+            this.updateUserToken(response.data);
 
             this.log.info('Signed in to Electrolux!');
         } catch (e) {
-            this.log.warn("Couldn't not sign in to Electrolux!");
+            this.log.warn('Could not sign in to Electrolux!');
         }
+    }
+
+    shouldRefreshAccessToken() {
+        return this.auth.user.refreshToken !== '' && Date.now() >= this.auth.user.tokenExpirationDate;
     }
 
     async refreshAccessToken() {
@@ -128,27 +148,43 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         const response = await axiosAuth.post<TokenResponse>('/token', {
             grantType: 'refresh_token',
             clientId: 'ElxOneApp',
-            refreshToken: this.refreshToken,
+            refreshToken: this.auth.user.refreshToken,
             scope: '',
         });
 
-        this.accessToken = response.data.accessToken;
-        this.refreshToken = response.data.refreshToken;
-        this.tokenExpirationDate = Date.now() + response.data.expiresIn * 1000;
+        this.updateUserToken(response.data);
 
         this.log.info('Access token refreshed!');
     }
 
+    private updateUserToken(token: TokenResponse) {
+        this.auth.user = {
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            tokenExpirationDate: Date.now() + token.expiresIn * 1000,
+        };
+
+        fs.writeFileSync(this.authFile, JSON.stringify(this.auth, null, 2));
+    }
+
     private async getAppliances() {
+        if (this.shouldRefreshAccessToken()) {
+            await this.refreshAccessToken();
+        }
+
         const response = await axiosAppliance.get<Appliances>('/appliances', {
             headers: {
-                Authorization: `Bearer ${this.accessToken}`,
+                Authorization: `Bearer ${this.auth.user.accessToken}`,
             },
         });
         return response.data;
     }
 
     private async getAppliancesInfo(applianceIds: string[]) {
+        if (this.shouldRefreshAccessToken()) {
+            await this.refreshAccessToken();
+        }
+
         const response = await axiosAppliance.post<AppliancesInfo>(
             '/appliances/info',
             {
@@ -156,7 +192,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             },
             {
                 headers: {
-                    Authorization: `Bearer ${this.accessToken}`,
+                    Authorization: `Bearer ${this.auth.user.accessToken}`,
                 },
             },
         );
