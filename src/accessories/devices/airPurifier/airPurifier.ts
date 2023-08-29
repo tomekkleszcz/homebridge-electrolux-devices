@@ -33,9 +33,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
             this.appliance.applianceData.applianceName,
         );
 
-        this.airPurifierService.getCharacteristic(this.platform.Characteristic.RotationSpeed).props.minStep =
-            100 / this.maxFanspeed;
-
         this.airPurifierService
             .getCharacteristic(this.platform.Characteristic.Active)
             .onGet(this.getActive.bind(this))
@@ -57,6 +54,9 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.airPurifierService
             .getCharacteristic(this.platform.Characteristic.RotationSpeed)
+            .setProps({
+                minStep: 100 / this.maxFanspeed,
+            })
             .onGet(this.getRotationSpeed.bind(this))
             .onSet(this.setRotationSpeed.bind(this));
 
