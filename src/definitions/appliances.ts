@@ -1,3 +1,3 @@
-import { Appliance } from './appliance';
+import {Appliance} from './appliance';
 
 export type Appliances = Appliance[];
