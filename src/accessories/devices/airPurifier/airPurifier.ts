@@ -271,6 +271,17 @@ export class AirPurifier extends ElectroluxAccessoryController {
     async update(appliance: Appliance) {
         this.appliance = appliance;
 
+        this.accessory
+            .getService(this.platform.Service.AccessoryInformation)!
+            .updateCharacteristic(
+                this.platform.Characteristic.FirmwareRevision,
+                this.appliance.properties.reported.FrmVer_NIU,
+            );
+        this.airPurifierService.updateCharacteristic(
+            this.platform.Characteristic.Name,
+            this.appliance.applianceData.applianceName,
+        );
+
         switch (this.appliance.properties.reported.Workmode) {
             case 'Manual':
                 this.airPurifierService.updateCharacteristic(
