@@ -287,7 +287,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 return;
             }
 
-            this.log.info('Polling appliances status...');
+            this.log.debug('Polling appliances status...');
 
             const appliances = await this.getAppliances();
 
@@ -304,7 +304,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 existingAccessory.controller?.update(appliance);
             });
 
-            this.log.info('Appliances status polled!');
+            this.log.debug('Appliances status polled!');
         } catch(err) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const message = (err as any).response?.data?.message ?? (err as Error).message;
