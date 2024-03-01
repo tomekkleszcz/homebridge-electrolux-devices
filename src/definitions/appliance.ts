@@ -8,7 +8,10 @@ export type Appliance = {
     properties: {
         reported: ApplianceProperties;
     };
+    connectionState: ConnectionState;
 };
+
+type ConnectionState = 'Connected' | 'Disconnected';
 
 type ApplianceProperties = {
     /* Comfort 600 */
