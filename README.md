@@ -1,9 +1,7 @@
 
-<p float="left">
+<p align="center">
 
-<img src="https://github.com/homebridge/branding/raw/master/logos/homebridge-wordmark-logo-vertical.png" width="150">
-
-<img src="https://is1-ssl.mzstatic.com/image/thumb/Purple126/v4/d0/cb/6f/d0cb6f49-b449-c0e0-4522-30fc6b432127/AppIcon-1x_U007emarketing-0-7-0-85-220.png/460x0w.webp" width="75" style="border-radius: 50%;">
+<img src="images/logo.png" width="192">
 
 </p>
 
