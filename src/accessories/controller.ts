@@ -21,7 +21,7 @@ export abstract class ElectroluxAccessoryController {
 
     async sendCommand(body: Record<string, CharacteristicValue>): Promise<void> {
         try {
-            if(Date.now() >= this.platform.tokenExpirationDate) {
+            if(this.platform.tokenExpirationDate && Date.now() >= this.platform.tokenExpirationDate) {
                 await this.platform.refreshAccessToken();
             }
 

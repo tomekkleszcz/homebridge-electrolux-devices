@@ -20,6 +20,8 @@ import Gigya from 'gigya';
 import { TokenResponse } from './definitions/auth';
 import { ElectroluxAccessoryController } from './accessories/controller';
 import { ElectroluxAccessory } from './accessories/accessory';
+import fs from 'fs';
+import path from 'path';
 import { Region } from './definitions/region';
 
 /**
@@ -34,10 +36,16 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     public readonly accessories: ElectroluxAccessory[] = [];
 
-    accessToken = '';
-    private refreshToken = '';
-    tokenExpirationDate = 0;
+    private gigya: Gigya | null = null;
+    private uid: string | null = null;
+    private oauthToken: string | null = null;
+    private sessionSecret: string | null = null;
 
+    accessToken: string | null = null;
+    private refreshToken: string | null = null;
+    tokenExpirationDate: number | null = null;
+
+    private devicesDiscovered = false;
     private pollingInterval: NodeJS.Timeout | null = null;
 
     constructor(
@@ -52,20 +60,26 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         // in order to ensure they weren't added to homebridge already. This event can also be used
         // to start discovery of new accessories.
         this.api.on('didFinishLaunching', async () => {
-            if (!this.config.refreshToken) {
-                await this.signIn();
-            } else {
-                this.refreshToken = this.config.refreshToken;
-                await this.refreshAccessToken();
+            try {
+                if (!this.config.refreshToken) {
+                    await this.signIn();
+                } else {
+                    this.refreshToken = this.config.refreshToken;
+                    await this.refreshAccessToken();
+                }
+
+                // run the method to discover / register your devices as accessories
+                await this.discoverDevices();
+
+            } catch(err) {
+                this.log.warn((err as Error).message);
+            } finally {
+                this.pollingInterval = setInterval(this.pollStatus.bind(this), (this.config.pollingInterval || 10) * 1000);
+
             }
-
-            // run the method to discover / register your devices as accessories
-            await this.discoverDevices();
-
-            this.pollingInterval = setInterval(this.pollStatus.bind(this), (this.config.pollingInterval || 10) * 1000);
         });
 
-        this.api.on('shutdown', () => {
+        this.api.on('shutdown', async () => {
             if (this.pollingInterval) {
                 clearInterval(this.pollingInterval);
             }
@@ -84,23 +98,51 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     }
 
     async signIn() {
-        this.log.info('Signing in to Electrolux...');
-
         const region: Region = this.config.region || 'eu';
 
-        try {
-            const gigya = new Gigya(ACCOUNTS_API_KEY, `${region}1`);
-            const loginResponse = await gigya.accounts.login({
-                loginID: this.config.email,
-                password: this.config.password,
-                targetEnv: 'mobile'
-            });
+        this.gigya = new Gigya(ACCOUNTS_API_KEY, `${region}1`);
 
-            const jwtResponse = await gigya.accounts.getJWT({
-                targetUID: loginResponse.UID,
+        const storagePath = path.format({
+            dir: this.api.user.storagePath(),
+            base: 'homebridge_electrolux_device_persist.json'
+        });
+        if(fs.existsSync(storagePath)) {
+            this.log.info('Restoring auth data from cache...');
+
+            const json = fs.readFileSync(storagePath, 'utf8');
+            const data = JSON.parse(json);
+
+            this.uid = data.uid;
+            this.oauthToken = data.oauthToken;
+            this.sessionSecret = data.sessionSecret;
+
+            this.accessToken = data.accessToken;
+            this.refreshToken = data.refreshToken;
+            this.tokenExpirationDate = data.tokenExpirationDate;
+
+            this.log.info('Auth data restored from cache!');
+            return;
+        }
+
+        this.log.info('Signing in to Electrolux...');
+
+        try {
+            if(!this.uid || !this.oauthToken) {
+                const loginResponse = await this.gigya.accounts.login({
+                    loginID: this.config.email,
+                    password: this.config.password,
+                    targetEnv: 'mobile'
+                });
+                this.uid = loginResponse.UID;
+                this.oauthToken = loginResponse.sessionInfo?.sessionToken ?? null;
+                this.sessionSecret = loginResponse.sessionInfo?.sessionSecret ?? null;
+            }
+
+            const jwtResponse = await this.gigya.accounts.getJWT({
+                targetUID: this.uid,
                 fields: 'country',
-                oauth_token: loginResponse.sessionInfo?.sessionToken,
-                secret: loginResponse.sessionInfo?.sessionSecret
+                oauth_token: this.oauthToken ?? undefined,
+                secret: this.sessionSecret ?? undefined
             });
 
             const tokenResponse = await axiosAuth(region).post<TokenResponse>(
@@ -124,12 +166,36 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             this.tokenExpirationDate = Date.now() + tokenResponse.data.expiresIn * 1000;
 
             this.log.info('Signed in to Electrolux!');
-        } catch (e) {
-            this.log.warn('Couldn\'t not sign in to Electrolux!');
+
+            const json = JSON.stringify({
+                uid: this.uid,
+                oauthToken: this.oauthToken,
+                sessionSecret: this.sessionSecret,
+
+                accessToken: this.accessToken,
+                refreshToken: this.refreshToken,
+                tokenExpirationDate: this.tokenExpirationDate
+            });
+
+            fs.writeFile(storagePath, json, 'utf8', (err) => {
+                if(err) {
+                    this.log.error('An error occurred while saving auth data: ', err.message);
+                }
+            });
+        } catch (err) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const message = (err as any).response?.data?.message ?? (err as Error).message;
+
+            throw new Error('Couldn\'t not sign in to Electrolux: ' + message);
         }
     }
 
     async refreshAccessToken() {
+        if(!this.refreshToken) {
+            await this.signIn();
+            return;
+        }
+
         this.log.info('Refreshing access token...');
 
         const region: Region = this.config.region || 'eu';
@@ -212,11 +278,21 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         });
 
         this.log.info('Devices discovered!');
+        this.devicesDiscovered = true;
     }
 
     async pollStatus() {
         try {
-            this.log.info('Polling appliances status...');
+            if(!this.tokenExpirationDate || Date.now() >= this.tokenExpirationDate) {
+                await this.refreshAccessToken();
+            }
+
+            if(!this.devicesDiscovered) {
+                await this.discoverDevices();
+                return;
+            }
+
+            this.log.debug('Polling appliances status...');
 
             const appliances = await this.getAppliances();
 
@@ -233,9 +309,12 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 existingAccessory.controller?.update(appliance);
             });
 
-            this.log.info('Appliances status polled!');
+            this.log.debug('Appliances status polled!');
         } catch(err) {
-            this.log.warn('Polling error: ', err);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const message = (err as any).response?.data?.message ?? (err as Error).message;
+
+            this.log.warn('Polling error: ', message);
         }
     }
 
