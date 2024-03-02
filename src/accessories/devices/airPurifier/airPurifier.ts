@@ -464,6 +464,21 @@ export class AirPurifier extends ElectroluxAccessoryController {
             this.platform.Characteristic.CurrentTemperature,
             this.appliance.properties.reported.Temp
         );
+
+        const filterLife = this.appliance.properties.reported.FilterType_1 === FilterType.ParticleFilter ?
+            this.appliance.properties.reported.FilterLife_1 :
+            this.appliance.properties.reported.FilterLife_2;
+
+        this.particleFilterService?.updateCharacteristic(
+            this.platform.Characteristic.FilterChangeIndication,
+            filterLife <= 10 ? this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER :
+                this.platform.Characteristic.FilterChangeIndication.FILTER_OK
+        );
+
+        this.particleFilterService?.updateCharacteristic(
+            this.platform.Characteristic.FilterLifeLevel,
+            filterLife
+        );
     }
 
 }
