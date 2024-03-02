@@ -1,7 +1,7 @@
 import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
 
 import { ElectroluxDevicesPlatform } from '../../../platform';
-import { Appliance } from '../../../definitions/appliance';
+import { Appliance, FilterType } from '../../../definitions/appliance';
 import { ElectroluxAccessoryController } from '../../controller';
 
 export class AirPurifier extends ElectroluxAccessoryController {
@@ -11,6 +11,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
     private airQualityService: Service;
     private humiditySensorService: Service;
     private temperatureSensorService: Service;
+    private particleFilterService?: Service;
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
@@ -85,6 +86,23 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.temperatureSensorService.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
             .onGet(this.getCurrentTemperature.bind(this));
+
+        if(this.appliance.properties.reported.FilterType_1 === FilterType.ParticleFilter ||
+            this.appliance.properties.reported.FilterType_2 === FilterType.ParticleFilter
+        ) {
+            this.particleFilterService = this.accessory.getService(this.platform.Service.FilterMaintenance) ||
+            this.accessory.addService(this.platform.Service.FilterMaintenance);
+
+            this.particleFilterService.getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
+                .onGet(this.getParticleFilterChangeIndication.bind(this));
+
+            this.particleFilterService.getCharacteristic(this.platform.Characteristic.FilterLifeLevel)
+                .onGet(this.getParticleFilterLifeLevel.bind(this));
+
+            this.particleFilterService.setCharacteristic(this.platform.Characteristic.Name, 'Particle Filter');
+
+            this.airPurifierService.addLinkedService(this.particleFilterService);
+        }
     }
 
     async getActive(): Promise<CharacteristicValue> {
@@ -331,6 +349,29 @@ export class AirPurifier extends ElectroluxAccessoryController {
         }
 
         return this.appliance.properties.reported.Temp;
+    }
+
+    async getParticleFilterChangeIndication(): Promise<CharacteristicValue> {
+        if(this.appliance.connectionState === 'Disconnected') {
+            throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+        }
+
+        const filterLife = this.appliance.properties.reported.FilterType_1 === FilterType.ParticleFilter ?
+            this.appliance.properties.reported.FilterLife_1 :
+            this.appliance.properties.reported.FilterLife_2;
+
+        return filterLife <= 10 ? this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER :
+            this.platform.Characteristic.FilterChangeIndication.FILTER_OK;
+    }
+
+    async getParticleFilterLifeLevel(): Promise<CharacteristicValue> {
+        if(this.appliance.connectionState === 'Disconnected') {
+            throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+        }
+
+        return this.appliance.properties.reported.FilterType_1 === FilterType.ParticleFilter ?
+            this.appliance.properties.reported.FilterLife_1 :
+            this.appliance.properties.reported.FilterLife_2;
     }
 
     async update(appliance: Appliance) {

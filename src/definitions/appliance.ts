@@ -38,6 +38,10 @@ type ApplianceProperties = {
     Temp: number;
     Humidity: number;
     TVOC: number;
+    FilterLife_1: number;
+    FilterType_1: FilterType;
+    FilterLife_2: number;
+    FilterType_2: FilterType;
 
     /* Well A7 */
     ECO2: number;
@@ -61,3 +65,8 @@ type State = 'good';
 
 /* Well A7 */
 type WorkMode = 'Manual' | 'Auto' | 'PowerOff';
+
+export enum FilterType {
+    ParticleFilter = 49,
+    OdorFilter = 192,
+}
