@@ -10,6 +10,7 @@ import {
 
 import {PLATFORM_NAME, PLUGIN_NAME} from './settings';
 import {
+    axiosApi,
     axiosAppliance,
     axiosAuth
 } from './services/axios';
@@ -23,12 +24,13 @@ import { ElectroluxAccessory } from './accessories/accessory';
 import fs from 'fs';
 import path from 'path';
 import { Region } from './definitions/region';
+import { IdentityProvidersResponse } from './definitions/identityProviders';
 
-/**
- * HomebridgePlatform
- * This class is the main constructor for your plugin, this is where you should
- * parse the user config and discover/register accessories with Homebridge.
- */
+/*
+    HomebridgePlatform
+    This class is the main constructor for your plugin, this is where you should
+    parse the user config and discover/register accessories with Homebridge.
+*/
 export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     public readonly Service: typeof Service = this.api.hap.Service;
     public readonly Characteristic: typeof Characteristic =
@@ -44,6 +46,8 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     accessToken: string | null = null;
     private refreshToken: string | null = null;
     tokenExpirationDate: number | null = null;
+
+    regionalBaseUrl: string | null = null;
 
     private devicesDiscovered = false;
     private pollingInterval: NodeJS.Timeout | null = null;
@@ -86,10 +90,10 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         });
     }
 
-    /**
-     * This function is invoked when homebridge restores cached accessories from disk at startup.
-     * It should be used to setup event handlers for characteristics and update respective values.
-     */
+    /*
+        This function is invoked when homebridge restores cached accessories from disk at startup.
+        It should be used to setup event handlers for characteristics and update respective values.
+    */
     configureAccessory(accessory: PlatformAccessory<ElectroluxAccessoryController>) {
         this.log.info('Loading accessory from cache:', accessory.displayName);
 
@@ -119,15 +123,13 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             this.accessToken = data.accessToken;
             this.refreshToken = data.refreshToken;
             this.tokenExpirationDate = data.tokenExpirationDate;
-
             this.log.info('Auth data restored from cache!');
-            return;
         }
 
-        this.log.info('Signing in to Electrolux...');
-
         try {
-            if(!this.uid || !this.oauthToken) {
+            if(!this.uid || !this.oauthToken || !this.sessionSecret) {
+                this.log.info('Signing in to Gigya...');
+
                 const loginResponse = await this.gigya.accounts.login({
                     loginID: this.config.email,
                     password: this.config.password,
@@ -136,36 +138,51 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 this.uid = loginResponse.UID;
                 this.oauthToken = loginResponse.sessionInfo?.sessionToken ?? null;
                 this.sessionSecret = loginResponse.sessionInfo?.sessionSecret ?? null;
+
+                this.log.info('Signed in to Gigya!');
             }
 
-            const jwtResponse = await this.gigya.accounts.getJWT({
-                targetUID: this.uid,
-                fields: 'country',
-                oauth_token: this.oauthToken ?? undefined,
-                secret: this.sessionSecret ?? undefined
+            if(!this.accessToken || !this.refreshToken || !this.tokenExpirationDate || Date.now() >= this.tokenExpirationDate){
+                this.log.info('Fetching JWT token...');
+
+                const jwtResponse = await this.gigya.accounts.getJWT({
+                    targetUID: this.uid,
+                    fields: 'country',
+                    oauth_token: this.oauthToken ?? undefined,
+                    secret: this.sessionSecret ?? undefined
+                });
+
+                const tokenResponse = await axiosAuth.post<TokenResponse>(
+                    '/token',
+                    {
+                        grantType:
+                            'urn:ietf:params:oauth:grant-type:token-exchange',
+                        clientId: 'ElxOneApp',
+                        idToken: jwtResponse.id_token,
+                        scope: ''
+                    },
+                    {
+                        baseURL: `${this.regionalBaseUrl}/one-account-authorization/api/v1`,
+                        headers: {
+                            'Origin-Country-Code': 'PL'
+                        }
+                    }
+                );
+
+                this.accessToken = tokenResponse.data.accessToken;
+                this.refreshToken = tokenResponse.data.refreshToken;
+                this.tokenExpirationDate = Date.now() + tokenResponse.data.expiresIn * 1000;
+
+                this.log.info('JWT token successfully fetched!');
+            }
+
+            const regionResponse = await axiosApi.get<IdentityProvidersResponse>('/identity-providers', {
+                headers: {
+                    Authorization: `Bearer ${this.accessToken}`
+                }
             });
 
-            const tokenResponse = await axiosAuth(region).post<TokenResponse>(
-                '/token',
-                {
-                    grantType:
-                        'urn:ietf:params:oauth:grant-type:token-exchange',
-                    clientId: 'ElxOneApp',
-                    idToken: jwtResponse.id_token,
-                    scope: ''
-                },
-                {
-                    headers: {
-                        'Origin-Country-Code': 'PL'
-                    }
-                }
-            );
-
-            this.accessToken = tokenResponse.data.accessToken;
-            this.refreshToken = tokenResponse.data.refreshToken;
-            this.tokenExpirationDate = Date.now() + tokenResponse.data.expiresIn * 1000;
-
-            this.log.info('Signed in to Electrolux!');
+            this.regionalBaseUrl = regionResponse.data.find(({brand}) => brand === 'electrolux')?.httpRegionalBaseUrl ?? null;
 
             const json = JSON.stringify({
                 uid: this.uid,
@@ -198,13 +215,13 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
         this.log.info('Refreshing access token...');
 
-        const region: Region = this.config.region || 'eu';
-
-        const response = await axiosAuth(region).post<TokenResponse>('/token', {
+        const response = await axiosAuth.post<TokenResponse>('/token', {
             grantType: 'refresh_token',
             clientId: 'ElxOneApp',
             refreshToken: this.refreshToken,
             scope: ''
+        }, {
+            baseURL: `${this.regionalBaseUrl}/one-account-authorization/api/v1`
         });
 
         this.accessToken = response.data.accessToken;
@@ -216,6 +233,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     private async getAppliances() {
         const response = await axiosAppliance.get<Appliances>('/appliances', {
+            baseURL: `${this.regionalBaseUrl}/appliance/api/v2`,
             headers: {
                 Authorization: `Bearer ${this.accessToken}`
             }
@@ -223,11 +241,11 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         return response.data;
     }
 
-    /**
-     * This is an example method showing how to register discovered accessories.
-     * Accessories must only be registered once, previously created accessories
-     * must not be registered again to prevent "duplicate UUID" errors.
-     */
+    /*
+        This is an example method showing how to register discovered accessories.
+        Accessories must only be registered once, previously created accessories
+        must not be registered again to prevent "duplicate UUID" errors.
+    */
     async discoverDevices() {
         this.log.info('Discovering devices...');
 

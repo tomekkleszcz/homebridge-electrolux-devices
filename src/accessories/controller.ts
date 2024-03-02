@@ -26,6 +26,7 @@ export abstract class ElectroluxAccessoryController {
             }
 
             await axiosAppliance.put(`/appliances/${this.appliance.applianceId}/command`, body, {
+                baseURL: `${this.platform.regionalBaseUrl}/appliance/api/v2`,
                 headers: {
                     'Authorization': `Bearer ${this.platform.accessToken}`
                 }
