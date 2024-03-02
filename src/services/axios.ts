@@ -1,9 +1,18 @@
 import axios from 'axios';
 import { API_KEY } from '../const/apiKey';
-import { APPLIANCE_API_URL, AUTH_API_URL } from '../const/url';
+import { API_URL } from '../const/url';
+
+export const axiosApi = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Accept': 'application/json',
+        'Accept-Charset': 'utf-8',
+        'x-api-key': API_KEY,
+        'User-Agent': 'Ktor client'
+    }
+});
 
 export const axiosAuth = axios.create({
-    baseURL: AUTH_API_URL,
     headers: {
         'Accept': 'application/json',
         'Accept-Charset': 'utf-8',
@@ -15,7 +24,6 @@ export const axiosAuth = axios.create({
 });
 
 export const axiosAppliance = axios.create({
-    baseURL: APPLIANCE_API_URL,
     headers: {
         'Accept-Encoding': 'gzip, deflate, br',
         'Accept-Charset': 'utf-8',
