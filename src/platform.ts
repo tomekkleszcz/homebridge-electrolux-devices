@@ -25,6 +25,7 @@ import fs from 'fs';
 import path from 'path';
 import { Region } from './definitions/region';
 import { IdentityProvidersResponse } from './definitions/identityProviders';
+import { API_URL } from './const/url';
 
 /*
     HomebridgePlatform
@@ -153,7 +154,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 });
 
                 const tokenResponse = await axiosAuth.post<TokenResponse>(
-                    '/token',
+                    '/one-account-authorization/api/v1/token',
                     {
                         grantType:
                             'urn:ietf:params:oauth:grant-type:token-exchange',
@@ -162,7 +163,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                         scope: ''
                     },
                     {
-                        baseURL: `${this.regionalBaseUrl}/one-account-authorization/api/v1`,
+                        baseURL: API_URL,
                         headers: {
                             'Origin-Country-Code': 'PL'
                         }
@@ -176,7 +177,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 this.log.info('JWT token successfully fetched!');
             }
 
-            const regionResponse = await axiosApi.get<IdentityProvidersResponse>('/identity-providers', {
+            const regionResponse = await axiosApi.get<IdentityProvidersResponse>('/one-account-user/api/v1/identity-providers', {
                 headers: {
                     Authorization: `Bearer ${this.accessToken}`
                 }
@@ -200,6 +201,8 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 }
             });
         } catch (err) {
+            console.log(err);
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const message = (err as any).response?.data?.message ?? (err as Error).message;
 
