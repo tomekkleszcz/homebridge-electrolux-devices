@@ -201,8 +201,6 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 }
             });
         } catch (err) {
-            console.log(err);
-
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const message = (err as any).response?.data?.message ?? (err as Error).message;
 
