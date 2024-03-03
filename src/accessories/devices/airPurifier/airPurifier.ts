@@ -3,6 +3,7 @@ import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../../../platform';
 import { Appliance, FilterType } from '../../../definitions/appliance';
 import { ElectroluxAccessoryController } from '../../controller';
+import { tvocPPBToVocDensity } from '../../../util/voc';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
@@ -195,7 +196,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 Workmode:
                     value === this.platform.Characteristic.Active.ACTIVE
                         ? 'Auto'
-                        : 'PowerOff',
+                        : 'PowerOff'
             });
 
             this.appliance.properties.reported.Workmode =
@@ -283,7 +284,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
         }
 
         await this.sendCommand({
-            Workmode: workMode,
+            Workmode: workMode
         });
 
         this.appliance.properties.reported.Workmode = workMode;
@@ -314,7 +315,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
             SafetyLock:
                 value ===
                 this.platform.Characteristic.LockPhysicalControls
-                    .CONTROL_LOCK_ENABLED,
+                    .CONTROL_LOCK_ENABLED
         });
 
         this.appliance.properties.reported.SafetyLock =
@@ -352,7 +353,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         if (value === 0) {
             await this.sendCommand({
-                Workmode: 'PowerOff',
+                Workmode: 'PowerOff'
             });
 
             this.appliance.properties.reported.Workmode = 'PowerOff';
@@ -368,7 +369,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
         }
 
         await this.sendCommand({
-            Fanspeed: Math.round((value as number) / 20),
+            Fanspeed: Math.round((value as number) / 20)
         });
 
         this.appliance.properties.reported.Fanspeed = Math.round(
@@ -394,7 +395,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
         }
 
         await this.sendCommand({
-            Ionizer: value,
+            Ionizer: value
         });
 
         this.appliance.properties.reported.Ionizer = value as boolean;
@@ -447,7 +448,13 @@ export class AirPurifier extends ElectroluxAccessoryController {
             );
         }
 
-        return this.appliance.properties.reported.TVOC;
+        const vocDensity = tvocPPBToVocDensity(
+            this.appliance.properties.reported.TVOC,
+            this.appliance.properties.reported.Temp,
+            this._platform.config.vocMolecularWeight ?? 30.026
+        );
+
+        return vocDensity;
     }
 
     async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {

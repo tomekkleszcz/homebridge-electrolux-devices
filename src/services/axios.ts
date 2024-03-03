@@ -8,8 +8,8 @@ export const axiosApi = axios.create({
         Accept: 'application/json',
         'Accept-Charset': 'utf-8',
         'x-api-key': API_KEY,
-        'User-Agent': 'Ktor client',
-    },
+        'User-Agent': 'Ktor client'
+    }
 });
 
 export const axiosAuth = axios.create({
@@ -19,8 +19,8 @@ export const axiosAuth = axios.create({
         Authorization: 'Bearer',
         'x-api-key': API_KEY,
         'Content-Type': 'application/json',
-        'User-Agent': 'Ktor client',
-    },
+        'User-Agent': 'Ktor client'
+    }
 });
 
 export const axiosAppliance = axios.create({
@@ -29,6 +29,6 @@ export const axiosAppliance = axios.create({
         'Accept-Charset': 'utf-8',
         'x-api-key': API_KEY,
         Accept: 'application/json',
-        'User-Agent': 'Ktor client',
-    },
+        'User-Agent': 'Ktor client'
+    }
 });

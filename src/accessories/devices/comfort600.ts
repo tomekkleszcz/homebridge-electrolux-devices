@@ -74,14 +74,14 @@ export class Comfort600 extends ElectroluxAccessoryController {
             this.platform.Characteristic.CurrentHeaterCoolerState.INACTIVE,
             this.platform.Characteristic.CurrentHeaterCoolerState.IDLE,
             this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
-            this.platform.Characteristic.CurrentHeaterCoolerState.HEATING,
+            this.platform.Characteristic.CurrentHeaterCoolerState.HEATING
         ];
         this.service.getCharacteristic(
             this.platform.Characteristic.TargetHeaterCoolerState
         ).props.validValues = [
             this.platform.Characteristic.TargetHeaterCoolerState.AUTO,
             this.platform.Characteristic.TargetHeaterCoolerState.COOL,
-            this.platform.Characteristic.TargetHeaterCoolerState.HEAT,
+            this.platform.Characteristic.TargetHeaterCoolerState.HEAT
         ];
 
         this.service
@@ -144,7 +144,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
 
     private setTemperature = _.debounce(async (value: CharacteristicValue) => {
         this.sendCommand({
-            targetTemperatureC: value,
+            targetTemperatureC: value
         });
     }, 1000);
 
@@ -171,7 +171,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
             executeCommand:
                 value === this.platform.Characteristic.Active.ACTIVE
                     ? 'ON'
-                    : 'OFF',
+                    : 'OFF'
         });
 
         this.appliance.properties.reported.applianceState =
@@ -264,7 +264,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
         }
 
         await this.sendCommand({
-            mode,
+            mode
         });
 
         if (currentState) {
@@ -342,7 +342,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
             uiLockMode:
                 value ===
                 this.platform.Characteristic.LockPhysicalControls
-                    .CONTROL_LOCK_ENABLED,
+                    .CONTROL_LOCK_ENABLED
         });
 
         this.appliance.properties.reported.uiLockMode =
@@ -388,7 +388,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
         }
 
         await this.sendCommand({
-            fanSpeed: value,
+            fanSpeed: value
         });
 
         const numberValue = value as number;
@@ -426,7 +426,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
             verticalSwing:
                 value === this.platform.Characteristic.SwingMode.SWING_ENABLED
                     ? 'ON'
-                    : 'OFF',
+                    : 'OFF'
         });
 
         this.appliance.properties.reported.verticalSwing =
