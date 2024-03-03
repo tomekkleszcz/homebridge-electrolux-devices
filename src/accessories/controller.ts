@@ -35,8 +35,8 @@ export abstract class ElectroluxAccessoryController {
                 {
                     baseURL: `${this.platform.regionalBaseUrl}/appliance/api/v2`,
                     headers: {
-                        Authorization: `Bearer ${this.platform.accessToken}`,
-                    },
+                        Authorization: `Bearer ${this.platform.accessToken}`
+                    }
                 }
             );
         } catch (error: unknown) {

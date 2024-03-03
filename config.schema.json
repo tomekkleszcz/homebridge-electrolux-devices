@@ -25,39 +25,27 @@
                 "oneOf": [
                     {
                         "title": "Europe",
-                        "enum": [
-                            "eu"
-                        ]
+                        "enum": ["eu"]
                     },
                     {
                         "title": "United States",
-                        "enum": [
-                            "us"
-                        ]
+                        "enum": ["us"]
                     },
                     {
                         "title": "Australia",
-                        "enum": [
-                            "au"
-                        ]
+                        "enum": ["au"]
                     },
                     {
                         "title": "Russia",
-                        "enum": [
-                            "ru"
-                        ]
+                        "enum": ["ru"]
                     },
                     {
                         "title": "China",
-                        "enum": [
-                            "cn"
-                        ]
+                        "enum": ["cn"]
                     },
                     {
                         "title": "Israel",
-                        "enum": [
-                            "il"
-                        ]
+                        "enum": ["il"]
                     }
                 ]
             },
@@ -72,6 +60,12 @@
                 "type": "number",
                 "required": false,
                 "default": "1000"
+            },
+            "vocMolecularWeight": {
+                "title": "VOC molecular weight",
+                "type": "number",
+                "required": false,
+                "default": "30.026"
             }
         }
     }

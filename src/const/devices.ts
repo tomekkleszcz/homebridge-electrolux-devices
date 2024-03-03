@@ -8,5 +8,5 @@ export const DEVICES = {
 
     /* Air purifiers */
     WELLA7: WellA7,
-    PUREA9: PureA9,
+    PUREA9: PureA9
 };
