@@ -5,22 +5,22 @@ import { API_URL } from '../const/url';
 export const axiosApi = axios.create({
     baseURL: API_URL,
     headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Accept-Charset': 'utf-8',
         'x-api-key': API_KEY,
-        'User-Agent': 'Ktor client'
-    }
+        'User-Agent': 'Ktor client',
+    },
 });
 
 export const axiosAuth = axios.create({
     headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Accept-Charset': 'utf-8',
-        'Authorization': 'Bearer',
+        Authorization: 'Bearer',
         'x-api-key': API_KEY,
         'Content-Type': 'application/json',
-        'User-Agent': 'Ktor client'
-    }
+        'User-Agent': 'Ktor client',
+    },
 });
 
 export const axiosAppliance = axios.create({
@@ -28,7 +28,7 @@ export const axiosAppliance = axios.create({
         'Accept-Encoding': 'gzip, deflate, br',
         'Accept-Charset': 'utf-8',
         'x-api-key': API_KEY,
-        'Accept': 'application/json',
-        'User-Agent': 'Ktor client'
-    }
+        Accept: 'application/json',
+        'User-Agent': 'Ktor client',
+    },
 });

@@ -1,9 +1,13 @@
 {
     "files.eol": "\n",
     "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": "explicit"
+        "source.fixAll.eslint": "always"
     },
     "editor.rulers": [140],
     "eslint.enable": true,
+    "eslint.validate": ["typescript"],
     "eslint.format.enable": true,
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.defaultFormatter": null
 }

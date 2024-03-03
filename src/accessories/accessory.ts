@@ -2,7 +2,6 @@ import { PlatformAccessory } from 'homebridge';
 import { ElectroluxAccessoryController } from './controller';
 
 export class ElectroluxAccessory {
-
     controller?: ElectroluxAccessoryController;
 
     constructor(
@@ -11,5 +10,4 @@ export class ElectroluxAccessory {
     ) {
         this.controller = controller;
     }
-
 }
