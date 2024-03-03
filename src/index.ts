@@ -1,7 +1,7 @@
-import {API} from 'homebridge';
+import { API } from 'homebridge';
 
-import {PLATFORM_NAME} from './settings';
-import {ElectroluxDevicesPlatform} from './platform';
+import { PLATFORM_NAME } from './settings';
+import { ElectroluxDevicesPlatform } from './platform';
 
 /**
  * This method registers the platform with Homebridge
