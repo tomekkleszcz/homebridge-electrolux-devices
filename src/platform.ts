@@ -5,7 +5,7 @@ import {
     PlatformAccessory,
     PlatformConfig,
     Service,
-    Characteristic,
+    Characteristic
 } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
@@ -108,7 +108,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
         const storagePath = path.format({
             dir: this.api.user.storagePath(),
-            base: 'homebridge_electrolux_device_persist.json',
+            base: 'homebridge_electrolux_device_persist.json'
         });
         if (fs.existsSync(storagePath)) {
             this.log.info('Restoring auth data from cache...');
@@ -133,7 +133,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 const loginResponse = await this.gigya.accounts.login({
                     loginID: this.config.email,
                     password: this.config.password,
-                    targetEnv: 'mobile',
+                    targetEnv: 'mobile'
                 });
                 this.uid = loginResponse.UID;
                 this.oauthToken =
@@ -156,7 +156,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                     targetUID: this.uid,
                     fields: 'country',
                     oauth_token: this.oauthToken ?? undefined,
-                    secret: this.sessionSecret ?? undefined,
+                    secret: this.sessionSecret ?? undefined
                 });
 
                 const tokenResponse = await axiosAuth.post<TokenResponse>(
@@ -166,13 +166,13 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                             'urn:ietf:params:oauth:grant-type:token-exchange',
                         clientId: 'ElxOneApp',
                         idToken: jwtResponse.id_token,
-                        scope: '',
+                        scope: ''
                     },
                     {
                         baseURL: API_URL,
                         headers: {
-                            'Origin-Country-Code': 'PL',
-                        },
+                            'Origin-Country-Code': 'PL'
+                        }
                     }
                 );
 
@@ -189,8 +189,8 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                     '/one-account-user/api/v1/identity-providers',
                     {
                         headers: {
-                            Authorization: `Bearer ${this.accessToken}`,
-                        },
+                            Authorization: `Bearer ${this.accessToken}`
+                        }
                     }
                 );
 
@@ -205,7 +205,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
                 accessToken: this.accessToken,
                 refreshToken: this.refreshToken,
-                tokenExpirationDate: this.tokenExpirationDate,
+                tokenExpirationDate: this.tokenExpirationDate
             });
 
             fs.writeFile(storagePath, json, 'utf8', (err) => {
@@ -217,8 +217,8 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 }
             });
         } catch (err) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const message =
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (err as any).response?.data?.message ?? (err as Error).message;
 
             throw new Error("Couldn't not sign in to Electrolux: " + message);
@@ -239,10 +239,10 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 grantType: 'refresh_token',
                 clientId: 'ElxOneApp',
                 refreshToken: this.refreshToken,
-                scope: '',
+                scope: ''
             },
             {
-                baseURL: `${this.regionalBaseUrl}/one-account-authorization/api/v1`,
+                baseURL: `${this.regionalBaseUrl}/one-account-authorization/api/v1`
             }
         );
 
@@ -257,8 +257,8 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         const response = await axiosAppliance.get<Appliances>('/appliances', {
             baseURL: `${this.regionalBaseUrl}/appliance/api/v2`,
             headers: {
-                Authorization: `Bearer ${this.accessToken}`,
-            },
+                Authorization: `Bearer ${this.accessToken}`
+            }
         });
         return response.data;
     }
@@ -319,7 +319,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             this.accessories.push(accessory);
 
             this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
-                platformAccessory,
+                platformAccessory
             ]);
         });
 
