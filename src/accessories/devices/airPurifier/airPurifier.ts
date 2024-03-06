@@ -44,10 +44,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
             this.appliance.applianceData.applianceName
         );
 
-        this.airPurifierService.getCharacteristic(
-            this.platform.Characteristic.RotationSpeed
-        ).props.minStep = 20;
-
         this.airPurifierService
             .getCharacteristic(this.platform.Characteristic.Active)
             .onGet(this.getActive.bind(this))
@@ -75,6 +71,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.airPurifierService
             .getCharacteristic(this.platform.Characteristic.RotationSpeed)
+            .setProps({
+                minValue: 0,
+                maxValue: 5,
+                minStep: 1
+            })
             .onGet(this.getRotationSpeed.bind(this))
             .onSet(this.setRotationSpeed.bind(this));
 
@@ -331,7 +332,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
             );
         }
 
-        return this.appliance.properties.reported.Fanspeed * 20;
+        return this.appliance.properties.reported.Fanspeed;
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
@@ -339,16 +340,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
             );
-        }
-
-        if (this.appliance.properties.reported.Workmode === 'Auto') {
-            setTimeout(() => {
-                this.airPurifierService.updateCharacteristic(
-                    this.platform.Characteristic.RotationSpeed,
-                    this.appliance.properties.reported.Fanspeed * 20
-                );
-            }, 100);
-            return;
         }
 
         if (value === 0) {
@@ -366,15 +357,23 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 this.platform.Characteristic.TargetAirPurifierState.AUTO
             );
             return;
+        } else if (this.appliance.properties.reported.Workmode === 'Auto') {
+            await this.sendCommand({
+                Workmode: 'Manual'
+            });
+            this.appliance.properties.reported.Workmode = 'Manual';
+
+            this.airPurifierService.updateCharacteristic(
+                this.platform.Characteristic.TargetAirPurifierState,
+                this.platform.Characteristic.TargetAirPurifierState.MANUAL
+            );
         }
 
         await this.sendCommand({
-            Fanspeed: Math.round((value as number) / 20)
+            Fanspeed: value
         });
 
-        this.appliance.properties.reported.Fanspeed = Math.round(
-            (value as number) / 20
-        );
+        this.appliance.properties.reported.Fanspeed = value as number;
     }
 
     async getIonizer(): Promise<CharacteristicValue> {
@@ -569,7 +568,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
         );
         this.airPurifierService.updateCharacteristic(
             this.platform.Characteristic.RotationSpeed,
-            this.appliance.properties.reported.Fanspeed * 20
+            this.appliance.properties.reported.Fanspeed
         );
 
         this.ionizerService.updateCharacteristic(
