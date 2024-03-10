@@ -130,7 +130,6 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         const regionData = regionResponse.data.find(
             ({ brand }) => brand === 'electrolux'
         );
-
         if (!regionData) {
             throw new Error('Region not found');
         }
