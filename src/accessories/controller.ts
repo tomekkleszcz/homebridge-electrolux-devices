@@ -47,5 +47,33 @@ export abstract class ElectroluxAccessoryController {
         }
     }
 
+    getCharacteristicValueGuard(
+        getter: () => Promise<CharacteristicValue>
+    ): () => Promise<CharacteristicValue> {
+        return async () => {
+            if (this.appliance.connectionState === 'Disconnected') {
+                throw new this.platform.api.hap.HapStatusError(
+                    this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
+                );
+            }
+
+            return await getter();
+        };
+    }
+
+    setCharacteristicValueGuard(
+        setter: (value: CharacteristicValue) => Promise<void>
+    ): (value: CharacteristicValue) => Promise<void> {
+        return async (value: CharacteristicValue) => {
+            if (this.appliance.connectionState === 'Disconnected') {
+                throw new this.platform.api.hap.HapStatusError(
+                    this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
+                );
+            }
+
+            return setter(value);
+        };
+    }
+
     abstract update(appliance: Appliance): void;
 }
