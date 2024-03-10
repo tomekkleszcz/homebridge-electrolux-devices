@@ -119,7 +119,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         );
 
         const regionResponse = await axiosApi.get<IdentityProvidersResponse>(
-            '/one-account-user/api/v1/identity-providers',
+            `/one-account-user/api/v1/identity-providers?email=${encodeURIComponent(this.config.email)}&loginType=OTP`,
             {
                 headers: {
                     Authorization: `Bearer ${tokenResponse.data.accessToken}`
@@ -248,7 +248,6 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     async refreshAccessToken() {
         if (!this.refreshToken) {
-            await this.signIn();
             return;
         }
 
@@ -290,6 +289,10 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         must not be registered again to prevent "duplicate UUID" errors.
     */
     async discoverDevices() {
+        if (!this.accessToken) {
+            return;
+        }
+
         this.log.info('Discovering devices...');
 
         const appliances = await this.getAppliances();
