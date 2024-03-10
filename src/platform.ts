@@ -247,11 +247,6 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     }
 
     async refreshAccessToken() {
-        if (!this.refreshToken) {
-            await this.signIn();
-            return;
-        }
-
         this.log.info('Refreshing access token...');
 
         const response = await axiosAuth.post<TokenResponse>(
