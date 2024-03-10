@@ -26,20 +26,22 @@ export class PureA9 extends AirPurifier {
             .getCharacteristic(
                 this.platform.Characteristic.CarbonDioxideDetected
             )
-            .onGet(this.getCarbonDioxideDetected.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCarbonDioxideDetected.bind(this)
+                )
+            );
 
         this.carbonDioxideSensorService
             .getCharacteristic(this.platform.Characteristic.CarbonDioxideLevel)
-            .onGet(this.getCarbonDioxideLevel.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCarbonDioxideLevel.bind(this)
+                )
+            );
     }
 
     async getCarbonDioxideDetected(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.ECO2 >
             this.platform.config.carbonDioxideSensorAlarmValue
             ? this.platform.Characteristic.CarbonDioxideDetected
@@ -49,12 +51,6 @@ export class PureA9 extends AirPurifier {
     }
 
     async getCarbonDioxideLevel(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.ECO2;
     }
 

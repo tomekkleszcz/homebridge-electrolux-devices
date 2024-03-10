@@ -46,8 +46,8 @@ export class Comfort600 extends ElectroluxAccessoryController {
 
         this.service
             .getCharacteristic(this.platform.Characteristic.Active)
-            .onGet(this.getActive.bind(this))
-            .onSet(this.setActive.bind(this));
+            .onGet(this.getCharacteristicValueGuard(this.getActive.bind(this)))
+            .onSet(this.setCharacteristicValueGuard(this.setActive.bind(this)));
 
         this.service
             .getCharacteristic(
@@ -64,7 +64,11 @@ export class Comfort600 extends ElectroluxAccessoryController {
                         .HEATING
                 ]
             })
-            .onGet(this.getCurrentHeaterCoolerState.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCurrentHeaterCoolerState.bind(this)
+                )
+            );
 
         this.service
             .getCharacteristic(
@@ -77,23 +81,43 @@ export class Comfort600 extends ElectroluxAccessoryController {
                     this.platform.Characteristic.TargetHeaterCoolerState.HEAT
                 ]
             })
-            .onGet(this.getTargetHeaterCoolerState.bind(this))
-            .onSet(this.setTargetHeaterCoolerState.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getTargetHeaterCoolerState.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setTargetHeaterCoolerState.bind(this)
+                )
+            );
 
         this.service
             .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
-            .onGet(this.getCurrentTemperature.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCurrentTemperature.bind(this)
+                )
+            );
 
         this.service
             .getCharacteristic(
                 this.platform.Characteristic.LockPhysicalControls
             )
-            .onGet(this.getLockPhysicalControls.bind(this))
-            .onSet(this.setLockPhysicalControls.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getLockPhysicalControls.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setLockPhysicalControls.bind(this)
+                )
+            );
 
         this.service
             .getCharacteristic(this.platform.Characteristic.Name)
-            .onGet(this.getName.bind(this));
+            .onGet(this.getCharacteristicValueGuard(this.getName.bind(this)));
 
         this.service
             .getCharacteristic(this.platform.Characteristic.RotationSpeed)
@@ -102,13 +126,25 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 maxValue: 100,
                 minStep: 33.33
             })
-            .onGet(this.getRotationSpeed.bind(this))
-            .onSet(this.setRotationSpeed.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getRotationSpeed.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setRotationSpeed.bind(this)
+                )
+            );
 
         this.service
             .getCharacteristic(this.platform.Characteristic.SwingMode)
-            .onGet(this.getSwingMode.bind(this))
-            .onSet(this.setSwingMode.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(this.getSwingMode.bind(this))
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(this.setSwingMode.bind(this))
+            );
 
         this.service
             .getCharacteristic(
@@ -119,8 +155,16 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 maxValue: 32,
                 minStep: 1
             })
-            .onGet(this.getCoolingThresholdTemperature.bind(this))
-            .onSet(this.setCoolingThresholdTemperature.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCoolingThresholdTemperature.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setCoolingThresholdTemperature.bind(this)
+                )
+            );
 
         this.service
             .getCharacteristic(
@@ -131,8 +175,16 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 maxValue: 32,
                 minStep: 1
             })
-            .onGet(this.getHeatingThresholdTemperature.bind(this))
-            .onSet(this.setHeatingThresholdTemperature.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getHeatingThresholdTemperature.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setHeatingThresholdTemperature.bind(this)
+                )
+            );
     }
 
     private setTemperature = _.debounce(async (value: CharacteristicValue) => {
@@ -142,24 +194,12 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }, 1000);
 
     async getActive(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.applianceState === 'running'
             ? this.platform.Characteristic.Active.ACTIVE
             : this.platform.Characteristic.Active.INACTIVE;
     }
 
     async setActive(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         this.sendCommand({
             executeCommand:
                 value === this.platform.Characteristic.Active.ACTIVE
@@ -174,12 +214,6 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getCurrentHeaterCoolerState(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         switch (this.appliance.properties.reported.mode) {
             case 'cool':
                 return this.platform.Characteristic.CurrentHeaterCoolerState
@@ -198,12 +232,6 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getTargetHeaterCoolerState(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         switch (this.appliance.properties.reported.mode) {
             case 'cool':
                 return this.platform.Characteristic.TargetHeaterCoolerState
@@ -218,12 +246,6 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async setTargetHeaterCoolerState(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         let mode: Uppercase<Mode> | null = null;
         let currentState: CharacteristicValue | null = null;
 
@@ -301,22 +323,10 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getCurrentTemperature(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.ambientTemperatureC;
     }
 
     async getLockPhysicalControls(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.uiLockMode
             ? this.platform.Characteristic.LockPhysicalControls
                   .CONTROL_LOCK_ENABLED
@@ -325,12 +335,6 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async setLockPhysicalControls(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         await this.sendCommand({
             uiLockMode:
                 value ===
@@ -345,22 +349,10 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getName(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.accessory.displayName;
     }
 
     async getRotationSpeed(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         switch (this.appliance.properties.reported.fanSpeedSetting) {
             case 'auto':
                 return 0;
@@ -374,12 +366,6 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         await this.sendCommand({
             fanSpeed: value
         });
@@ -397,24 +383,12 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getSwingMode(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.verticalSwing === 'on'
             ? this.platform.Characteristic.SwingMode.SWING_ENABLED
             : this.platform.Characteristic.SwingMode.SWING_DISABLED;
     }
 
     async setSwingMode(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         await this.sendCommand({
             verticalSwing:
                 value === this.platform.Characteristic.SwingMode.SWING_ENABLED
@@ -429,22 +403,10 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getCoolingThresholdTemperature(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.targetTemperatureC;
     }
 
     async setCoolingThresholdTemperature(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         if (this.appliance.properties.reported.mode === 'auto') {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.INVALID_VALUE_IN_REQUEST
@@ -463,22 +425,10 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getHeatingThresholdTemperature(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.targetTemperatureC;
     }
 
     async setHeatingThresholdTemperature(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         try {
             await this.setTemperature(value);
             this.appliance.properties.reported.targetTemperatureC =

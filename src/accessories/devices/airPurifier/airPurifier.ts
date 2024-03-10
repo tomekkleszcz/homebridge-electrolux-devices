@@ -46,28 +46,48 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.airPurifierService
             .getCharacteristic(this.platform.Characteristic.Active)
-            .onGet(this.getActive.bind(this))
-            .onSet(this.setActive.bind(this));
+            .onGet(this.getCharacteristicValueGuard(this.getActive.bind(this)))
+            .onSet(this.setCharacteristicValueGuard(this.setActive.bind(this)));
 
         this.airPurifierService
             .getCharacteristic(
                 this.platform.Characteristic.CurrentAirPurifierState
             )
-            .onGet(this.getCurrentAirPurifierState.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCurrentAirPurifierState.bind(this)
+                )
+            );
 
         this.airPurifierService
             .getCharacteristic(
                 this.platform.Characteristic.TargetAirPurifierState
             )
-            .onGet(this.getTargetAirPurifierState.bind(this))
-            .onSet(this.setTargetAirPurifierState.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getTargetAirPurifierState.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setTargetAirPurifierState.bind(this)
+                )
+            );
 
         this.airPurifierService
             .getCharacteristic(
                 this.platform.Characteristic.LockPhysicalControls
             )
-            .onGet(this.getLockPhysicalControls.bind(this))
-            .onSet(this.setLockPhysicalControls.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getLockPhysicalControls.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setLockPhysicalControls.bind(this)
+                )
+            );
 
         this.airPurifierService
             .getCharacteristic(this.platform.Characteristic.RotationSpeed)
@@ -76,8 +96,16 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 maxValue: 5,
                 minStep: 1
             })
-            .onGet(this.getRotationSpeed.bind(this))
-            .onSet(this.setRotationSpeed.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getRotationSpeed.bind(this)
+                )
+            )
+            .onSet(
+                this.setCharacteristicValueGuard(
+                    this.setRotationSpeed.bind(this)
+                )
+            );
 
         this.ionizerService =
             this.accessory.getService(this.platform.Service.Switch) ||
@@ -90,8 +118,10 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.ionizerService
             .getCharacteristic(this.platform.Characteristic.On)
-            .onGet(this.getIonizer.bind(this))
-            .onSet(this.setIonizer.bind(this));
+            .onGet(this.getCharacteristicValueGuard(this.getIonizer.bind(this)))
+            .onSet(
+                this.setCharacteristicValueGuard(this.setIonizer.bind(this))
+            );
 
         this.airQualityService =
             this.accessory.getService(this.platform.Service.AirQualitySensor) ||
@@ -99,19 +129,29 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.airQualityService
             .getCharacteristic(this.platform.Characteristic.AirQuality)
-            .onGet(this.getAirQuality.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(this.getAirQuality.bind(this))
+            );
 
         this.airQualityService
             .getCharacteristic(this.platform.Characteristic.PM2_5Density)
-            .onGet(this.getPM2_5Density.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getPM2_5Density.bind(this)
+                )
+            );
 
         this.airQualityService
             .getCharacteristic(this.platform.Characteristic.PM10Density)
-            .onGet(this.getPM10Density.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(this.getPM10Density.bind(this))
+            );
 
         this.airQualityService
             .getCharacteristic(this.platform.Characteristic.VOCDensity)
-            .onGet(this.getVOCDensity.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(this.getVOCDensity.bind(this))
+            );
 
         this.humiditySensorService =
             this.accessory.getService(this.platform.Service.HumiditySensor) ||
@@ -121,7 +161,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
             .getCharacteristic(
                 this.platform.Characteristic.CurrentRelativeHumidity
             )
-            .onGet(this.getCurrentRelativeHumidity.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCurrentRelativeHumidity.bind(this)
+                )
+            );
 
         this.temperatureSensorService =
             this.accessory.getService(
@@ -131,7 +175,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.temperatureSensorService
             .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
-            .onGet(this.getCurrentTemperature.bind(this));
+            .onGet(
+                this.getCharacteristicValueGuard(
+                    this.getCurrentTemperature.bind(this)
+                )
+            );
 
         if (
             this.appliance.properties.reported.FilterType_1 ===
@@ -151,11 +199,19 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 .getCharacteristic(
                     this.platform.Characteristic.FilterChangeIndication
                 )
-                .onGet(this.getParticleFilterChangeIndication.bind(this));
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getParticleFilterChangeIndication.bind(this)
+                    )
+                );
 
             this.particleFilterService
                 .getCharacteristic(this.platform.Characteristic.FilterLifeLevel)
-                .onGet(this.getParticleFilterLifeLevel.bind(this));
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getParticleFilterLifeLevel.bind(this)
+                    )
+                );
 
             this.particleFilterService.setCharacteristic(
                 this.platform.Characteristic.Name,
@@ -169,24 +225,12 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getActive(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.Workmode === 'PowerOff'
             ? this.platform.Characteristic.Active.INACTIVE
             : this.platform.Characteristic.Active.ACTIVE;
     }
 
     async setActive(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         if (
             (this.appliance.properties.reported.Workmode === 'PowerOff' &&
                 value === this.platform.Characteristic.Active.ACTIVE) ||
@@ -230,12 +274,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getCurrentAirPurifierState(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         switch (this.appliance.properties.reported.Workmode) {
             case 'Manual':
                 return this.platform.Characteristic.CurrentAirPurifierState
@@ -250,12 +288,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getTargetAirPurifierState(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         switch (this.appliance.properties.reported.Workmode) {
             case 'Manual':
                 return this.platform.Characteristic.TargetAirPurifierState
@@ -268,12 +300,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async setTargetAirPurifierState(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         let workMode;
         switch (value) {
             case this.platform.Characteristic.TargetAirPurifierState.MANUAL:
@@ -292,12 +318,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getLockPhysicalControls(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.SafetyLock
             ? this.platform.Characteristic.LockPhysicalControls
                   .CONTROL_LOCK_ENABLED
@@ -306,12 +326,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async setLockPhysicalControls(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         await this.sendCommand({
             SafetyLock:
                 value ===
@@ -326,22 +340,10 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getRotationSpeed(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.Fanspeed;
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         if (value === 0) {
             await this.sendCommand({
                 Workmode: 'PowerOff'
@@ -377,22 +379,10 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getIonizer(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.Ionizer;
     }
 
     async setIonizer(value: CharacteristicValue) {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         await this.sendCommand({
             Ionizer: value
         });
@@ -401,12 +391,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getAirQuality(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         if (this.appliance.properties.reported.PM2_5 <= 25) {
             return this.platform.Characteristic.AirQuality.EXCELLENT;
         } else if (this.appliance.properties.reported.PM2_5 <= 50) {
@@ -421,32 +405,14 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getPM2_5Density(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.PM2_5;
     }
 
     async getPM10Density(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.PM10;
     }
 
     async getVOCDensity(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         const vocDensity = tvocPPBToVocDensity(
             this.appliance.properties.reported.TVOC,
             this.appliance.properties.reported.Temp,
@@ -457,32 +423,14 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.Humidity;
     }
 
     async getCurrentTemperature(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.Temp;
     }
 
     async getParticleFilterChangeIndication(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         const filterLife =
             this.appliance.properties.reported.FilterType_1 ===
             FilterType.ParticleFilter
@@ -495,12 +443,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getParticleFilterLifeLevel(): Promise<CharacteristicValue> {
-        if (this.appliance.connectionState === 'Disconnected') {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-
         return this.appliance.properties.reported.FilterType_1 ===
             FilterType.ParticleFilter
             ? this.appliance.properties.reported.FilterLife_1
