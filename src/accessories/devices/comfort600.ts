@@ -4,6 +4,7 @@ import { Appliance } from '../../definitions/appliance';
 import { Mode } from '../../definitions/appliance';
 import _ from 'lodash';
 import { ElectroluxAccessoryController } from '../controller';
+import { Capabilities } from '../../definitions/capabilities';
 
 /**
  * Platform Accessory
@@ -16,9 +17,10 @@ export class Comfort600 extends ElectroluxAccessoryController {
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory,
-        readonly _appliance: Appliance
+        readonly _appliance: Appliance,
+        readonly _capabilities: Capabilities | undefined
     ) {
-        super(_platform, _accessory, _appliance);
+        super(_platform, _accessory, _appliance, _capabilities);
 
         this.accessory
             .getService(this.platform.Service.AccessoryInformation)!
@@ -70,16 +72,21 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 )
             );
 
+        const targetHeaterCoolerStateValidValues = [
+            this.capabilities?.mode.values['AUTO'] !== undefined &&
+                this.platform.Characteristic.TargetHeaterCoolerState.AUTO,
+            this.capabilities?.mode.values['COOL'] !== undefined &&
+                this.platform.Characteristic.TargetHeaterCoolerState.COOL
+            // this.capabilities?.mode.values['HEAT'] !== undefined &&
+            //     this.platform.Characteristic.TargetHeaterCoolerState.HEAT
+        ].filter((value) => value !== false) as number[];
+
         this.service
             .getCharacteristic(
                 this.platform.Characteristic.TargetHeaterCoolerState
             )
             .setProps({
-                validValues: [
-                    this.platform.Characteristic.TargetHeaterCoolerState.AUTO,
-                    this.platform.Characteristic.TargetHeaterCoolerState.COOL,
-                    this.platform.Characteristic.TargetHeaterCoolerState.HEAT
-                ]
+                validValues: targetHeaterCoolerStateValidValues
             })
             .onGet(
                 this.getCharacteristicValueGuard(
@@ -151,9 +158,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 this.platform.Characteristic.CoolingThresholdTemperature
             )
             .setProps({
-                minValue: 16,
-                maxValue: 32,
-                minStep: 1
+                minValue: this.capabilities!.targetTemperatureC.min,
+                maxValue: this.capabilities!.targetTemperatureC.max,
+                minStep: this.capabilities!.targetTemperatureC.step
             })
             .onGet(
                 this.getCharacteristicValueGuard(
@@ -171,9 +178,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 this.platform.Characteristic.HeatingThresholdTemperature
             )
             .setProps({
-                minValue: 16,
-                maxValue: 32,
-                minStep: 1
+                minValue: this.capabilities!.targetTemperatureC.min,
+                maxValue: this.capabilities!.targetTemperatureC.max,
+                minStep: this.capabilities!.targetTemperatureC.step
             })
             .onGet(
                 this.getCharacteristicValueGuard(
@@ -293,7 +300,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
                     this.service.updateCharacteristic(
                         this.platform.Characteristic
                             .CoolingThresholdTemperature,
-                        32
+                        this.capabilities!.targetTemperatureC.max
                     );
                     this.service.updateCharacteristic(
                         this.platform.Characteristic

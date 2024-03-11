@@ -3,6 +3,7 @@ import { ElectroluxDevicesPlatform } from '../../../platform';
 import { AirPurifier } from './airPurifier';
 import { ElectroluxAccessoryController } from '../../controller';
 import { Appliance } from '../../../definitions/appliance';
+import { Capabilities } from '../../../definitions/capabilities';
 
 export class UltimateHome500 extends AirPurifier {
     private uvLightService: Service;
@@ -11,9 +12,10 @@ export class UltimateHome500 extends AirPurifier {
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
-        readonly _appliance: Appliance
+        readonly _appliance: Appliance,
+        readonly _capabilities: Capabilities
     ) {
-        super(_platform, _accessory, _appliance);
+        super(_platform, _accessory, _appliance, _capabilities);
 
         this.uvLightService =
             this.accessory.getService(this.platform.Service.Lightbulb) ||

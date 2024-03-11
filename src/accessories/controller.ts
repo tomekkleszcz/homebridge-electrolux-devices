@@ -1,21 +1,27 @@
+import { axiosAppliance } from './../services/axios';
 import { Appliance } from '../definitions/appliance';
 import { CharacteristicValue, PlatformAccessory } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../platform';
-import { axiosAppliance } from '../services/axios';
+import { Capabilities } from '../definitions/capabilities';
 
 export abstract class ElectroluxAccessoryController {
     platform: ElectroluxDevicesPlatform;
     accessory: PlatformAccessory;
     appliance: Appliance;
+    capabilities: Capabilities | undefined;
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory,
-        readonly _appliance: Appliance
+        readonly _appliance: Appliance,
+        readonly _capabilities: Capabilities | undefined
     ) {
         this.platform = _platform;
         this.accessory = _accessory;
         this.appliance = _appliance;
+        this.capabilities = _capabilities;
+
+        // console.log(_capabilities);
     }
 
     async sendCommand(
@@ -51,11 +57,11 @@ export abstract class ElectroluxAccessoryController {
         getter: () => Promise<CharacteristicValue>
     ): () => Promise<CharacteristicValue> {
         return async () => {
-            if (this.appliance.connectionState === 'Disconnected') {
-                throw new this.platform.api.hap.HapStatusError(
-                    this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-                );
-            }
+            // if (this.appliance.connectionState === 'Disconnected') {
+            //     throw new this.platform.api.hap.HapStatusError(
+            //         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
+            //     );
+            // }
 
             return await getter();
         };
@@ -65,11 +71,11 @@ export abstract class ElectroluxAccessoryController {
         setter: (value: CharacteristicValue) => Promise<void>
     ): (value: CharacteristicValue) => Promise<void> {
         return async (value: CharacteristicValue) => {
-            if (this.appliance.connectionState === 'Disconnected') {
-                throw new this.platform.api.hap.HapStatusError(
-                    this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-                );
-            }
+            // if (this.appliance.connectionState === 'Disconnected') {
+            //     throw new this.platform.api.hap.HapStatusError(
+            //         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
+            //     );
+            // }
 
             return setter(value);
         };

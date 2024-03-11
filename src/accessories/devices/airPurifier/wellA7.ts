@@ -4,6 +4,7 @@ import { AirPurifier } from './airPurifier';
 import { ElectroluxAccessoryController } from '../../controller';
 import { Appliance } from '../../../definitions/appliance';
 import { tvocPPBToVocDensity } from '../../../util/voc';
+import { Capabilities } from '../../../definitions/capabilities';
 
 export class WellA7 extends AirPurifier {
     private ionizerService: Service;
@@ -15,9 +16,10 @@ export class WellA7 extends AirPurifier {
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
-        readonly _appliance: Appliance
+        readonly _appliance: Appliance,
+        readonly _capabilities: Capabilities
     ) {
-        super(_platform, _accessory, _appliance);
+        super(_platform, _accessory, _appliance, _capabilities);
 
         this.ionizerService =
             this.accessory.getService(this.platform.Service.Switch) ||
