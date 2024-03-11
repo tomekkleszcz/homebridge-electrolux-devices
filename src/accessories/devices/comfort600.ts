@@ -403,6 +403,10 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getCoolingThresholdTemperature(): Promise<CharacteristicValue> {
+        if (this.appliance.properties.reported.mode === 'auto') {
+            return 32;
+        }
+
         return this.appliance.properties.reported.targetTemperatureC;
     }
 
@@ -442,6 +446,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
 
     update(appliance: Appliance) {
         this.appliance = appliance;
+
         let currentState: CharacteristicValue, targetState: CharacteristicValue;
         switch (this.appliance.properties.reported.mode) {
             case 'cool':
