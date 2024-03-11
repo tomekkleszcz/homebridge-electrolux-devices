@@ -161,7 +161,12 @@ export class WellA7 extends AirPurifier {
             this._platform.config.vocMolecularWeight ?? 30.026
         );
 
-        return vocDensity;
+        return Math.min(
+            vocDensity,
+            this.airQualityService.getCharacteristic(
+                this.platform.Characteristic.VOCDensity
+            ).props.maxValue!
+        );
     }
 
     async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
@@ -207,7 +212,7 @@ export class WellA7 extends AirPurifier {
         );
         this.airQualityService.updateCharacteristic(
             this.platform.Characteristic.VOCDensity,
-            this.appliance.properties.reported.TVOC
+            await this.getVOCDensity()
         );
 
         this.humiditySensorService.updateCharacteristic(
