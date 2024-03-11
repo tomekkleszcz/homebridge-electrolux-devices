@@ -8,7 +8,7 @@
 
 ![NPM Downloads](https://img.shields.io/npm/dm/homebridge-electrolux-devices)
 ![NPM Version](https://img.shields.io/npm/v/homebridge-electrolux-devices)
-![Tests](https://github.com/tomekkleszcz/homebridge-electrolux-devices/actions/workflows/tests.yml/badge.svg)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/tomekkleszcz/homebridge-electrolux-devices/tests.yml?label=tests)
 
 This is a plugin for connecting Electrolux devices which are controlled by the [Electrolux](https://apps.apple.com/pl/app/electrolux/id1595816832) app to Homekit.
 
