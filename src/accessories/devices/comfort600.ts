@@ -73,12 +73,12 @@ export class Comfort600 extends ElectroluxAccessoryController {
             );
 
         const targetHeaterCoolerStateValidValues = [
-            this.capabilities?.mode.values['AUTO'] !== undefined &&
+            this.capabilities!.mode!.values['AUTO'] !== undefined &&
                 this.platform.Characteristic.TargetHeaterCoolerState.AUTO,
-            this.capabilities?.mode.values['COOL'] !== undefined &&
-                this.platform.Characteristic.TargetHeaterCoolerState.COOL
-            // this.capabilities?.mode.values['HEAT'] !== undefined &&
-            //     this.platform.Characteristic.TargetHeaterCoolerState.HEAT
+            this.capabilities!.mode!.values['COOL'] !== undefined &&
+                this.platform.Characteristic.TargetHeaterCoolerState.COOL,
+            this.capabilities!.mode!.values['HEAT'] !== undefined &&
+                this.platform.Characteristic.TargetHeaterCoolerState.HEAT
         ].filter((value) => value !== false) as number[];
 
         this.service
@@ -126,41 +126,65 @@ export class Comfort600 extends ElectroluxAccessoryController {
             .getCharacteristic(this.platform.Characteristic.Name)
             .onGet(this.getCharacteristicValueGuard(this.getName.bind(this)));
 
-        this.service
-            .getCharacteristic(this.platform.Characteristic.RotationSpeed)
-            .setProps({
-                minValue: 0,
-                maxValue: 100,
-                minStep: 33.33
-            })
-            .onGet(
-                this.getCharacteristicValueGuard(
-                    this.getRotationSpeed.bind(this)
-                )
-            )
-            .onSet(
-                this.setCharacteristicValueGuard(
-                    this.setRotationSpeed.bind(this)
-                )
-            );
+        if (this.capabilities?.fanSpeedState) {
+            const minRotationSpeedStep =
+                100 /
+                Object.entries(this.capabilities!.fanSpeedState?.values).length;
 
-        this.service
-            .getCharacteristic(this.platform.Characteristic.SwingMode)
-            .onGet(
-                this.getCharacteristicValueGuard(this.getSwingMode.bind(this))
-            )
-            .onSet(
-                this.setCharacteristicValueGuard(this.setSwingMode.bind(this))
+            this.service
+                .getCharacteristic(this.platform.Characteristic.RotationSpeed)
+                .setProps({
+                    minValue: 0,
+                    maxValue: 100,
+                    minStep: minRotationSpeedStep
+                })
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getRotationSpeed.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setRotationSpeed.bind(this)
+                    )
+                );
+        } else {
+            this.service.removeCharacteristic(
+                this.service.getCharacteristic(
+                    this.platform.Characteristic.RotationSpeed
+                )
             );
+        }
+
+        if (this.capabilities?.verticalSwing) {
+            this.service
+                .getCharacteristic(this.platform.Characteristic.SwingMode)
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getSwingMode.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setSwingMode.bind(this)
+                    )
+                );
+        } else {
+            this.service.removeCharacteristic(
+                this.service.getCharacteristic(
+                    this.platform.Characteristic.SwingMode
+                )
+            );
+        }
 
         this.service
             .getCharacteristic(
                 this.platform.Characteristic.CoolingThresholdTemperature
             )
             .setProps({
-                minValue: this.capabilities!.targetTemperatureC.min,
-                maxValue: this.capabilities!.targetTemperatureC.max,
-                minStep: this.capabilities!.targetTemperatureC.step
+                minValue: this.capabilities?.targetTemperatureC?.min ?? 16,
+                maxValue: this.capabilities?.targetTemperatureC?.max ?? 32,
+                minStep: this.capabilities?.targetTemperatureC?.step ?? 1
             })
             .onGet(
                 this.getCharacteristicValueGuard(
@@ -178,9 +202,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 this.platform.Characteristic.HeatingThresholdTemperature
             )
             .setProps({
-                minValue: this.capabilities!.targetTemperatureC.min,
-                maxValue: this.capabilities!.targetTemperatureC.max,
-                minStep: this.capabilities!.targetTemperatureC.step
+                minValue: this.capabilities?.targetTemperatureC?.min ?? 16,
+                maxValue: this.capabilities?.targetTemperatureC?.max ?? 32,
+                minStep: this.capabilities?.targetTemperatureC?.step ?? 1
             })
             .onGet(
                 this.getCharacteristicValueGuard(
@@ -229,6 +253,16 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 return this.platform.Characteristic.CurrentHeaterCoolerState
                     .HEATING;
             case 'auto':
+                if (this.capabilities?.mode?.values['HEAT'] === undefined) {
+                    return this.appliance.properties.reported
+                        .ambientTemperatureC >
+                        this.appliance.properties.reported.targetTemperatureC
+                        ? this.platform.Characteristic.CurrentHeaterCoolerState
+                              .COOLING
+                        : this.platform.Characteristic.CurrentHeaterCoolerState
+                              .IDLE;
+                }
+
                 return this.appliance.properties.reported.ambientTemperatureC >
                     this.appliance.properties.reported.targetTemperatureC
                     ? this.platform.Characteristic.CurrentHeaterCoolerState
@@ -300,7 +334,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
                     this.service.updateCharacteristic(
                         this.platform.Characteristic
                             .CoolingThresholdTemperature,
-                        this.capabilities!.targetTemperatureC.max
+                        this.capabilities?.targetTemperatureC?.max ?? 32
                     );
                     this.service.updateCharacteristic(
                         this.platform.Characteristic
@@ -364,9 +398,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
             case 'auto':
                 return 0;
             case 'low':
-                return 33;
+                return 33.33;
             case 'middle':
-                return 66;
+                return 66.66;
             case 'high':
                 return 100;
         }
@@ -380,11 +414,11 @@ export class Comfort600 extends ElectroluxAccessoryController {
         const numberValue = value as number;
 
         this.appliance.properties.reported.fanSpeedSetting =
-            value === (0 as number)
+            numberValue === 0
                 ? 'auto'
-                : numberValue <= 33
+                : numberValue <= 33.34
                   ? 'low'
-                  : numberValue <= 66
+                  : numberValue <= 66.67
                     ? 'middle'
                     : 'high';
     }
@@ -488,10 +522,10 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 rotationSpeed = 0;
                 break;
             case 'low':
-                rotationSpeed = 33;
+                rotationSpeed = 33.33;
                 break;
             case 'middle':
-                rotationSpeed = 66;
+                rotationSpeed = 66.66;
                 break;
             case 'high':
                 rotationSpeed = 100;
@@ -537,7 +571,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
         if (this.appliance.properties.reported.mode === 'auto') {
             this.service.updateCharacteristic(
                 this.platform.Characteristic.CoolingThresholdTemperature,
-                32
+                this.capabilities?.targetTemperatureC?.max ?? 32
             );
             this.service.updateCharacteristic(
                 this.platform.Characteristic.HeatingThresholdTemperature,

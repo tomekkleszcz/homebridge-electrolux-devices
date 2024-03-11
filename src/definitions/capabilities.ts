@@ -2,12 +2,18 @@ import { Mode } from './appliance';
 
 export type Capabilities = {
     /* Comfort 600 */
-    mode: {
+    mode?: {
         values: Record<Uppercase<Mode>, Record<string, unknown>>;
     };
-    targetTemperatureC: {
+    targetTemperatureC?: {
         max: number;
         min: number;
         step: number;
+    };
+    fanSpeedState?: {
+        values: Record<string, unknown>;
+    };
+    verticalSwing?: {
+        values: Record<Uppercase<Mode>, unknown>;
     };
 };
