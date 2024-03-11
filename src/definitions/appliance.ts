@@ -29,6 +29,12 @@ type ApplianceProperties = {
     /* Air purifiers */
     Workmode: WorkMode;
     Fanspeed: number;
+    FilterLife_1: number;
+    FilterType_1: FilterType;
+    FilterLife_2: number;
+    FilterType_2: FilterType;
+
+    /* Well A7, Pure A9 */
     Ionizer: boolean;
     UILight: boolean;
     SafetyLock: boolean;
@@ -38,16 +44,16 @@ type ApplianceProperties = {
     Temp: number;
     Humidity: number;
     TVOC: number;
-    FilterLife_1: number;
-    FilterType_1: FilterType;
-    FilterLife_2: number;
-    FilterType_2: FilterType;
 
     /* Well A7 */
     ECO2: number;
 
     /* Pure A9 */
     CO2: number;
+
+    /* Extreme Home 500 */
+    UVState: Toggle;
+    PM2_5_approximate: number;
 };
 
 /* Comfort 600 */

@@ -12,14 +12,13 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { axiosApi, axiosAppliance, axiosAuth } from './services/axios';
 import { Appliances } from './definitions/appliances';
 import { DEVICES } from './const/devices';
-import { ACCOUNTS_API_KEY } from './const/apiKey';
-import Gigya from 'gigya';
+import { CLIENT_ID, CLIENT_SECRET } from './const/apiKey';
+import Gigya, { DataCenter } from 'gigya';
 import { TokenResponse } from './definitions/auth';
 import { ElectroluxAccessoryController } from './accessories/controller';
 import { ElectroluxAccessory } from './accessories/accessory';
 import fs from 'fs';
 import path from 'path';
-import { Region } from './definitions/region';
 import { IdentityProvidersResponse } from './definitions/identityProviders';
 import { API_URL } from './const/url';
 
@@ -102,9 +101,45 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
     }
 
     async signIn() {
-        const region: Region = this.config.region || 'eu';
+        /* 
+            Get the token from Electrolux API using CLIENT_ID and CLIENT_SECRET 
+            to fetch the regional base URL and API key.
+        */
+        const tokenResponse = await axiosAuth.post<TokenResponse>(
+            '/one-account-authorization/api/v1/token',
+            {
+                grantType: 'client_credentials',
+                clientId: CLIENT_ID,
+                clientSecret: CLIENT_SECRET,
+                scope: ''
+            },
+            {
+                baseURL: API_URL
+            }
+        );
 
-        this.gigya = new Gigya(ACCOUNTS_API_KEY, `${region}1`);
+        const regionResponse = await axiosApi.get<IdentityProvidersResponse>(
+            `/one-account-user/api/v1/identity-providers?email=${encodeURIComponent(this.config.email)}&loginType=OTP`,
+            {
+                headers: {
+                    Authorization: `Bearer ${tokenResponse.data.accessToken}`
+                }
+            }
+        );
+
+        const regionData = regionResponse.data.find(
+            ({ brand }) => brand === 'electrolux'
+        );
+        if (!regionData) {
+            throw new Error('Region not found');
+        }
+
+        this.regionalBaseUrl = regionData?.httpRegionalBaseUrl ?? null;
+
+        this.gigya = new Gigya(
+            regionData?.apiKey,
+            regionData.domain.split('.')[0] as DataCenter
+        );
 
         const storagePath = path.format({
             dir: this.api.user.storagePath(),
@@ -164,7 +199,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                     {
                         grantType:
                             'urn:ietf:params:oauth:grant-type:token-exchange',
-                        clientId: 'ElxOneApp',
+                        clientId: CLIENT_ID,
                         idToken: jwtResponse.id_token,
                         scope: ''
                     },
@@ -183,20 +218,6 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
                 this.log.info('JWT token successfully fetched!');
             }
-
-            const regionResponse =
-                await axiosApi.get<IdentityProvidersResponse>(
-                    '/one-account-user/api/v1/identity-providers',
-                    {
-                        headers: {
-                            Authorization: `Bearer ${this.accessToken}`
-                        }
-                    }
-                );
-
-            this.regionalBaseUrl =
-                regionResponse.data.find(({ brand }) => brand === 'electrolux')
-                    ?.httpRegionalBaseUrl ?? null;
 
             const json = JSON.stringify({
                 uid: this.uid,
@@ -227,7 +248,6 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     async refreshAccessToken() {
         if (!this.refreshToken) {
-            await this.signIn();
             return;
         }
 
@@ -237,7 +257,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             '/token',
             {
                 grantType: 'refresh_token',
-                clientId: 'ElxOneApp',
+                clientId: CLIENT_ID,
                 refreshToken: this.refreshToken,
                 scope: ''
             },
@@ -269,6 +289,10 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         must not be registered again to prevent "duplicate UUID" errors.
     */
     async discoverDevices() {
+        if (!this.accessToken) {
+            return;
+        }
+
         this.log.info('Discovering devices...');
 
         const appliances = await this.getAppliances();

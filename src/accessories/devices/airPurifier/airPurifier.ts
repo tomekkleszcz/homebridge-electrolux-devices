@@ -3,14 +3,9 @@ import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../../../platform';
 import { Appliance, FilterType } from '../../../definitions/appliance';
 import { ElectroluxAccessoryController } from '../../controller';
-import { tvocPPBToVocDensity } from '../../../util/voc';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
-    private ionizerService: Service;
-    private airQualityService: Service;
-    private humiditySensorService: Service;
-    private temperatureSensorService: Service;
     private particleFilterService?: Service;
 
     constructor(
@@ -104,80 +99,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
             .onSet(
                 this.setCharacteristicValueGuard(
                     this.setRotationSpeed.bind(this)
-                )
-            );
-
-        this.ionizerService =
-            this.accessory.getService(this.platform.Service.Switch) ||
-            this.accessory.addService(this.platform.Service.Switch);
-
-        this.ionizerService.setCharacteristic(
-            this.platform.Characteristic.Name,
-            'Ionizer'
-        );
-
-        this.ionizerService
-            .getCharacteristic(this.platform.Characteristic.On)
-            .onGet(this.getCharacteristicValueGuard(this.getIonizer.bind(this)))
-            .onSet(
-                this.setCharacteristicValueGuard(this.setIonizer.bind(this))
-            );
-
-        this.airQualityService =
-            this.accessory.getService(this.platform.Service.AirQualitySensor) ||
-            this.accessory.addService(this.platform.Service.AirQualitySensor);
-
-        this.airQualityService
-            .getCharacteristic(this.platform.Characteristic.AirQuality)
-            .onGet(
-                this.getCharacteristicValueGuard(this.getAirQuality.bind(this))
-            );
-
-        this.airQualityService
-            .getCharacteristic(this.platform.Characteristic.PM2_5Density)
-            .onGet(
-                this.getCharacteristicValueGuard(
-                    this.getPM2_5Density.bind(this)
-                )
-            );
-
-        this.airQualityService
-            .getCharacteristic(this.platform.Characteristic.PM10Density)
-            .onGet(
-                this.getCharacteristicValueGuard(this.getPM10Density.bind(this))
-            );
-
-        this.airQualityService
-            .getCharacteristic(this.platform.Characteristic.VOCDensity)
-            .onGet(
-                this.getCharacteristicValueGuard(this.getVOCDensity.bind(this))
-            );
-
-        this.humiditySensorService =
-            this.accessory.getService(this.platform.Service.HumiditySensor) ||
-            this.accessory.addService(this.platform.Service.HumiditySensor);
-
-        this.humiditySensorService
-            .getCharacteristic(
-                this.platform.Characteristic.CurrentRelativeHumidity
-            )
-            .onGet(
-                this.getCharacteristicValueGuard(
-                    this.getCurrentRelativeHumidity.bind(this)
-                )
-            );
-
-        this.temperatureSensorService =
-            this.accessory.getService(
-                this.platform.Service.TemperatureSensor
-            ) ||
-            this.accessory.addService(this.platform.Service.TemperatureSensor);
-
-        this.temperatureSensorService
-            .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
-            .onGet(
-                this.getCharacteristicValueGuard(
-                    this.getCurrentTemperature.bind(this)
                 )
             );
 
@@ -378,58 +299,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
         this.appliance.properties.reported.Fanspeed = value as number;
     }
 
-    async getIonizer(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Ionizer;
-    }
-
-    async setIonizer(value: CharacteristicValue) {
-        await this.sendCommand({
-            Ionizer: value
-        });
-
-        this.appliance.properties.reported.Ionizer = value as boolean;
-    }
-
-    async getAirQuality(): Promise<CharacteristicValue> {
-        if (this.appliance.properties.reported.PM2_5 <= 25) {
-            return this.platform.Characteristic.AirQuality.EXCELLENT;
-        } else if (this.appliance.properties.reported.PM2_5 <= 50) {
-            return this.platform.Characteristic.AirQuality.GOOD;
-        } else if (this.appliance.properties.reported.PM2_5 <= 75) {
-            return this.platform.Characteristic.AirQuality.FAIR;
-        } else if (this.appliance.properties.reported.PM2_5 <= 100) {
-            return this.platform.Characteristic.AirQuality.INFERIOR;
-        } else {
-            return this.platform.Characteristic.AirQuality.POOR;
-        }
-    }
-
-    async getPM2_5Density(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.PM2_5;
-    }
-
-    async getPM10Density(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.PM10;
-    }
-
-    async getVOCDensity(): Promise<CharacteristicValue> {
-        const vocDensity = tvocPPBToVocDensity(
-            this.appliance.properties.reported.TVOC,
-            this.appliance.properties.reported.Temp,
-            this._platform.config.vocMolecularWeight ?? 30.026
-        );
-
-        return vocDensity;
-    }
-
-    async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Humidity;
-    }
-
-    async getCurrentTemperature(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Temp;
-    }
-
     async getParticleFilterChangeIndication(): Promise<CharacteristicValue> {
         const filterLife =
             this.appliance.properties.reported.FilterType_1 ===
@@ -511,38 +380,6 @@ export class AirPurifier extends ElectroluxAccessoryController {
         this.airPurifierService.updateCharacteristic(
             this.platform.Characteristic.RotationSpeed,
             this.appliance.properties.reported.Fanspeed
-        );
-
-        this.ionizerService.updateCharacteristic(
-            this.platform.Characteristic.On,
-            this.appliance.properties.reported.Ionizer ? 1 : 0
-        );
-
-        this.airQualityService.updateCharacteristic(
-            this.platform.Characteristic.AirQuality,
-            await this.getAirQuality()
-        );
-        this.airQualityService.updateCharacteristic(
-            this.platform.Characteristic.PM2_5Density,
-            this.appliance.properties.reported.PM2_5
-        );
-        this.airQualityService.updateCharacteristic(
-            this.platform.Characteristic.PM10Density,
-            this.appliance.properties.reported.PM10
-        );
-        this.airQualityService.updateCharacteristic(
-            this.platform.Characteristic.VOCDensity,
-            this.appliance.properties.reported.TVOC
-        );
-
-        this.humiditySensorService.updateCharacteristic(
-            this.platform.Characteristic.CurrentRelativeHumidity,
-            this.appliance.properties.reported.Humidity
-        );
-
-        this.temperatureSensorService.updateCharacteristic(
-            this.platform.Characteristic.CurrentTemperature,
-            this.appliance.properties.reported.Temp
         );
 
         const filterLife =
