@@ -1,6 +1,6 @@
 import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../../platform';
-import { Appliance } from '../../definitions/appliance';
+import { Appliance, FanSpeedSetting } from '../../definitions/appliance';
 import { Mode } from '../../definitions/appliance';
 import _ from 'lodash';
 import { ElectroluxAccessoryController } from '../controller';
@@ -127,16 +127,13 @@ export class Comfort600 extends ElectroluxAccessoryController {
             .onGet(this.getCharacteristicValueGuard(this.getName.bind(this)));
 
         if (this.capabilities?.fanSpeedState) {
-            const minRotationSpeedStep =
-                100 /
-                Object.entries(this.capabilities!.fanSpeedState?.values).length;
-
             this.service
                 .getCharacteristic(this.platform.Characteristic.RotationSpeed)
                 .setProps({
                     minValue: 0,
-                    maxValue: 100,
-                    minStep: minRotationSpeedStep
+                    maxValue: this.capabilities!.fanSpeedState.values
+                        .length as number,
+                    minStep: 1
                 })
                 .onGet(
                     this.getCharacteristicValueGuard(
@@ -231,6 +228,15 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async setActive(value: CharacteristicValue) {
+        if (
+            (this.appliance.properties.reported.applianceState === 'running' &&
+                value === this.platform.Characteristic.Active.ACTIVE) ||
+            (this.appliance.properties.reported.applianceState === 'off' &&
+                value === this.platform.Characteristic.Active.INACTIVE)
+        ) {
+            return;
+        }
+
         this.sendCommand({
             executeCommand:
                 value === this.platform.Characteristic.Active.ACTIVE
@@ -398,29 +404,35 @@ export class Comfort600 extends ElectroluxAccessoryController {
             case 'auto':
                 return 0;
             case 'low':
-                return 33.33;
+                return 1;
             case 'middle':
-                return 66.66;
+                return 2;
             case 'high':
-                return 100;
+                return 3;
         }
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
-        await this.sendCommand({
-            fanSpeed: value
-        });
-
         const numberValue = value as number;
 
-        this.appliance.properties.reported.fanSpeedSetting =
-            numberValue === 0
-                ? 'auto'
-                : numberValue <= 33.34
-                  ? 'low'
-                  : numberValue <= 66.67
-                    ? 'middle'
-                    : 'high';
+        let fanSpeedSetting: FanSpeedSetting = 'auto';
+        switch (numberValue) {
+            case 1:
+                fanSpeedSetting = 'low';
+                break;
+            case 2:
+                fanSpeedSetting = 'middle';
+                break;
+            case 3:
+                fanSpeedSetting = 'high';
+                break;
+        }
+
+        this.appliance.properties.reported.fanSpeedSetting = fanSpeedSetting;
+
+        await this.sendCommand({
+            fanSpeedSetting: fanSpeedSetting.toUpperCase()
+        });
     }
 
     async getSwingMode(): Promise<CharacteristicValue> {
@@ -522,13 +534,13 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 rotationSpeed = 0;
                 break;
             case 'low':
-                rotationSpeed = 33.33;
+                rotationSpeed = 1;
                 break;
             case 'middle':
-                rotationSpeed = 66.66;
+                rotationSpeed = 2;
                 break;
             case 'high':
-                rotationSpeed = 100;
+                rotationSpeed = 3;
                 break;
         }
         this.service.updateCharacteristic(
