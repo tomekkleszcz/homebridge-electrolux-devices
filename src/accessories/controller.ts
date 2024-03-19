@@ -1,21 +1,27 @@
+import { axiosAppliance } from './../services/axios';
 import { Appliance } from '../definitions/appliance';
 import { CharacteristicValue, PlatformAccessory } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../platform';
-import { axiosAppliance } from '../services/axios';
+import { Capabilities } from '../definitions/capabilities';
 
 export abstract class ElectroluxAccessoryController {
     platform: ElectroluxDevicesPlatform;
     accessory: PlatformAccessory;
     appliance: Appliance;
+    capabilities: Capabilities | undefined;
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory,
-        readonly _appliance: Appliance
+        readonly _appliance: Appliance,
+        readonly _capabilities: Capabilities | undefined
     ) {
         this.platform = _platform;
         this.accessory = _accessory;
         this.appliance = _appliance;
+        this.capabilities = _capabilities;
+
+        this.accessory.context.capabilities = this.capabilities;
     }
 
     async sendCommand(

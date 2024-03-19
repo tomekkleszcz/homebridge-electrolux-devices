@@ -3,6 +3,7 @@ import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../../../platform';
 import { Appliance, FilterType } from '../../../definitions/appliance';
 import { ElectroluxAccessoryController } from '../../controller';
+import { Capabilities } from '../../../definitions/capabilities';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
@@ -11,9 +12,10 @@ export class AirPurifier extends ElectroluxAccessoryController {
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
-        readonly _appliance: Appliance
+        readonly _appliance: Appliance,
+        readonly _capabilities: Capabilities | undefined
     ) {
-        super(_platform, _accessory, _appliance);
+        super(_platform, _accessory, _appliance, _capabilities);
 
         this.accessory
             .getService(this.platform.Service.AccessoryInformation)!

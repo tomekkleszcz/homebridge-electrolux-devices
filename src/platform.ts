@@ -15,12 +15,13 @@ import { DEVICES } from './const/devices';
 import { CLIENT_ID, CLIENT_SECRET } from './const/apiKey';
 import Gigya, { DataCenter } from 'gigya';
 import { TokenResponse } from './definitions/auth';
-import { ElectroluxAccessoryController } from './accessories/controller';
 import { ElectroluxAccessory } from './accessories/accessory';
 import fs from 'fs';
 import path from 'path';
 import { IdentityProvidersResponse } from './definitions/identityProviders';
 import { API_URL } from './const/url';
+import { Capabilities } from './definitions/capabilities';
+import { Context } from './definitions/context';
 
 /*
     HomebridgePlatform
@@ -91,9 +92,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         This function is invoked when homebridge restores cached accessories from disk at startup.
         It should be used to setup event handlers for characteristics and update respective values.
     */
-    configureAccessory(
-        accessory: PlatformAccessory<ElectroluxAccessoryController>
-    ) {
+    configureAccessory(accessory: PlatformAccessory<Context>) {
         this.log.info('Loading accessory from cache:', accessory.displayName);
 
         // add the restored accessory to the accessories cache so we can track if it has already been registered
@@ -283,10 +282,28 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         return response.data;
     }
 
+    async getApplianceCapabilities(
+        applianceId: string
+    ): Promise<Capabilities | null> {
+        try {
+            const response = await axiosAppliance.get<Capabilities>(
+                `/appliances/${applianceId}/capabilities`,
+                {
+                    baseURL: `${this.regionalBaseUrl}/appliance/api/v2`,
+                    headers: {
+                        Authorization: `Bearer ${this.accessToken}`
+                    }
+                }
+            );
+
+            return response.data;
+        } catch (err) {
+            return null;
+        }
+    }
+
     /*
-        This is an example method showing how to register discovered accessories.
-        Accessories must only be registered once, previously created accessories
-        must not be registered again to prevent "duplicate UUID" errors.
+        Get the appliances from the Electrolux API and register each appliance as an accessory.
     */
     async discoverDevices() {
         if (!this.accessToken) {
@@ -297,7 +314,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
         const appliances = await this.getAppliances();
 
-        appliances.map((appliance) => {
+        appliances.map(async (appliance) => {
             if (!DEVICES[appliance.applianceData.modelName]) {
                 this.log.warn(
                     'Accessory not found for model: ',
@@ -312,6 +329,19 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 (accessory) => accessory.platformAccessory.UUID === uuid
             );
 
+            /* 
+                Get the capabilities of the appliance from the context.
+                If the capabilities are not in the context, fetch them from the API.
+                If the capabilities equals null, that means the appliance capabilities is not supported.
+            */
+            const capabilities =
+                existingAccessory?.platformAccessory.context.capabilities !==
+                undefined
+                    ? existingAccessory.platformAccessory.context.capabilities
+                    : await this.getApplianceCapabilities(
+                          appliance.applianceId
+                      );
+
             if (existingAccessory) {
                 this.log.info(
                     'Restoring existing accessory from cache:',
@@ -319,7 +349,12 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 );
                 existingAccessory.controller = new DEVICES[
                     appliance.applianceData.modelName
-                ](this, existingAccessory.platformAccessory, appliance);
+                ](
+                    this,
+                    existingAccessory.platformAccessory,
+                    appliance,
+                    capabilities
+                );
                 return;
             }
 
@@ -337,7 +372,8 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 new DEVICES[appliance.applianceData.modelName](
                     this,
                     platformAccessory,
-                    appliance
+                    appliance,
+                    capabilities
                 )
             );
             this.accessories.push(accessory);
