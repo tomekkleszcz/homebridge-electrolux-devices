@@ -65,7 +65,7 @@ type Toggle = 'on' | 'off';
 
 export type Mode = 'auto' | 'cool' | 'heat';
 
-type FanSpeedSetting = 'auto' | 'low' | 'middle' | 'high';
+export type FanSpeedSetting = 'auto' | 'low' | 'middle' | 'high';
 
 type State = 'good';
 
