@@ -1,9 +1,10 @@
 import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 
 import { ElectroluxDevicesPlatform } from '../../../platform';
-import { Appliance, FilterType } from '../../../definitions/appliance';
+import { Appliance } from '../../../definitions/appliance';
 import { ElectroluxAccessoryController } from '../../controller';
 import { Capabilities } from '../../../definitions/capabilities';
+import { isParticleFilter } from '../../../util/filters';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
@@ -105,10 +106,8 @@ export class AirPurifier extends ElectroluxAccessoryController {
             );
 
         if (
-            this.appliance.properties.reported.FilterType_1 ===
-                FilterType.ParticleFilter ||
-            this.appliance.properties.reported.FilterType_2 ===
-                FilterType.ParticleFilter
+            isParticleFilter(this.appliance.properties.reported.FilterType_1) ||
+            isParticleFilter(this.appliance.properties.reported.FilterType_2)
         ) {
             this.particleFilterService =
                 this.accessory.getService(
@@ -302,11 +301,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getParticleFilterChangeIndication(): Promise<CharacteristicValue> {
-        const filterLife =
-            this.appliance.properties.reported.FilterType_1 ===
-            FilterType.ParticleFilter
-                ? this.appliance.properties.reported.FilterLife_1
-                : this.appliance.properties.reported.FilterLife_2;
+        const filterLife = isParticleFilter(
+            this.appliance.properties.reported.FilterType_1
+        )
+            ? this.appliance.properties.reported.FilterLife_1
+            : this.appliance.properties.reported.FilterLife_2;
 
         return filterLife <= 10
             ? this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER
@@ -314,8 +313,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getParticleFilterLifeLevel(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.FilterType_1 ===
-            FilterType.ParticleFilter
+        return isParticleFilter(this.appliance.properties.reported.FilterType_1)
             ? this.appliance.properties.reported.FilterLife_1
             : this.appliance.properties.reported.FilterLife_2;
     }
@@ -384,11 +382,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
             this.appliance.properties.reported.Fanspeed
         );
 
-        const filterLife =
-            this.appliance.properties.reported.FilterType_1 ===
-            FilterType.ParticleFilter
-                ? this.appliance.properties.reported.FilterLife_1
-                : this.appliance.properties.reported.FilterLife_2;
+        const filterLife = isParticleFilter(
+            this.appliance.properties.reported.FilterType_1
+        )
+            ? this.appliance.properties.reported.FilterLife_1
+            : this.appliance.properties.reported.FilterLife_2;
 
         this.particleFilterService?.updateCharacteristic(
             this.platform.Characteristic.FilterChangeIndication,
