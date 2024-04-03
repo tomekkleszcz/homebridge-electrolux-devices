@@ -73,6 +73,7 @@ type State = 'good';
 type WorkMode = 'Manual' | 'Auto' | 'PowerOff';
 
 export enum FilterType {
-    ParticleFilter = 49,
+    ParticleFilter1 = 48,
+    ParticleFilter2 = 49,
     OdorFilter = 192
 }
