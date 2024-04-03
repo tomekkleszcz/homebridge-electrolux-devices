@@ -21,6 +21,7 @@ This is a plugin for connecting Electrolux devices which are controlled by the [
 ## 🌡️ Supported devices
 
 -   Comfort 600 air conditioner
+-   Well A5/AX 5 air purifier
 -   Well A7 air purifier
 -   Pure A9/AX 9 air purifier
 -   UltimateHome 500 air purifier
