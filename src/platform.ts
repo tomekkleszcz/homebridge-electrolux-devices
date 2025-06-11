@@ -9,19 +9,17 @@ import {
 } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { axiosApi, axiosAppliance, axiosAuth } from './services/axios';
 import { Appliances } from './definitions/appliances';
 import { DEVICES } from './const/devices';
-import { CLIENT_ID, CLIENT_SECRET } from './const/apiKey';
-import Gigya, { DataCenter } from 'gigya';
 import { TokenResponse } from './definitions/auth';
 import { ElectroluxAccessory } from './accessories/accessory';
 import fs from 'fs';
 import path from 'path';
-import { IdentityProvidersResponse } from './definitions/identityProviders';
 import { API_URL } from './const/url';
-import { Capabilities } from './definitions/capabilities';
+import { Capabilities } from './definitions/appliance';
 import { Context } from './definitions/context';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import { ApplianceState } from './definitions/applianceState';
 
 /*
     HomebridgePlatform
@@ -35,14 +33,11 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     public readonly accessories: ElectroluxAccessory[] = [];
 
-    private gigya: Gigya | null = null;
-    private uid: string | null = null;
-    private oauthToken: string | null = null;
-    private sessionSecret: string | null = null;
-
     accessToken: string | null = null;
     private refreshToken: string | null = null;
     tokenExpirationDate: number | null = null;
+
+    client!: AxiosInstance;
 
     regionalBaseUrl: string | null = null;
 
@@ -62,12 +57,9 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         // to start discovery of new accessories.
         this.api.on('didFinishLaunching', async () => {
             try {
-                if (!this.config.refreshToken) {
-                    await this.signIn();
-                } else {
-                    this.refreshToken = this.config.refreshToken;
-                    await this.refreshAccessToken();
-                }
+                await this.createClient();
+
+                await this.loadAuthData();
 
                 // run the method to discover / register your devices as accessories
                 await this.discoverDevices();
@@ -99,150 +91,72 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         this.accessories.push(new ElectroluxAccessory(accessory));
     }
 
-    async signIn() {
-        /* 
-            Get the token from Electrolux API using CLIENT_ID and CLIENT_SECRET 
-            to fetch the regional base URL and API key.
-        */
-        const tokenResponse = await axiosAuth.post<TokenResponse>(
-            '/one-account-authorization/api/v1/token',
-            {
-                grantType: 'client_credentials',
-                clientId: CLIENT_ID,
-                clientSecret: CLIENT_SECRET,
-                scope: ''
-            },
-            {
-                baseURL: API_URL
-            }
-        );
-
-        const regionResponse = await axiosApi.get<IdentityProvidersResponse>(
-            `/one-account-user/api/v1/identity-providers?email=${encodeURIComponent(this.config.email)}&loginType=OTP`,
-            {
-                headers: {
-                    Authorization: `Bearer ${tokenResponse.data.accessToken}`
-                }
-            }
-        );
-
-        const regionData = regionResponse.data.find(
-            ({ brand }) => brand === 'electrolux'
-        );
-        if (!regionData) {
-            throw new Error('Region not found');
+    async createClient() {
+        if (!this.config.apiKey) {
+            throw new Error('API Key not found');
         }
 
-        this.regionalBaseUrl = regionData?.httpRegionalBaseUrl ?? null;
+        this.client = axios.create({
+            baseURL: API_URL,
+            headers: {
+                Accept: 'application/json',
+                'Accept-Charset': 'utf-8',
+                'x-api-key': this.config.apiKey
+            }
+        });
+        this.client.interceptors.request.use(this.authInterceptor.bind(this));
+    }
 
-        this.gigya = new Gigya(
-            regionData?.apiKey,
-            regionData.domain.split('.')[0] as DataCenter
-        );
+    authInterceptor(value: InternalAxiosRequestConfig<unknown>) {
+        if (value.url === '/api/v1/token/refresh') {
+            return value;
+        }
 
+        if (this.accessToken) {
+            value.headers.Authorization = `Bearer ${this.accessToken}`;
+        }
+
+        return value;
+    }
+
+    async loadAuthData() {
         const storagePath = path.format({
             dir: this.api.user.storagePath(),
             base: 'homebridge_electrolux_device_persist.json'
         });
-        if (fs.existsSync(storagePath)) {
-            this.log.info('Restoring auth data from cache...');
 
-            const json = fs.readFileSync(storagePath, 'utf8');
-            const data = JSON.parse(json);
-
-            this.uid = data.uid;
-            this.oauthToken = data.oauthToken;
-            this.sessionSecret = data.sessionSecret;
-
-            this.accessToken = data.accessToken;
-            this.refreshToken = data.refreshToken;
-            this.tokenExpirationDate = data.tokenExpirationDate;
-            this.log.info('Auth data restored from cache!');
-        }
-
-        try {
-            if (!this.uid || !this.oauthToken || !this.sessionSecret) {
-                this.log.info('Signing in to Gigya...');
-
-                const loginResponse = await this.gigya.accounts.login({
-                    loginID: this.config.email,
-                    password: this.config.password,
-                    targetEnv: 'mobile'
-                });
-                this.uid = loginResponse.UID;
-                this.oauthToken =
-                    loginResponse.sessionInfo?.sessionToken ?? null;
-                this.sessionSecret =
-                    loginResponse.sessionInfo?.sessionSecret ?? null;
-
-                this.log.info('Signed in to Gigya!');
+        /* Check if the file exists. */
+        const exists = fs.existsSync(storagePath);
+        /* If the file does not exist, get the refresh token from the config to get a new access token. */
+        if (!exists) {
+            this.refreshToken = this.config.refreshToken;
+            if (!this.refreshToken) {
+                throw new Error('Refresh token not found');
             }
 
-            if (
-                !this.accessToken ||
-                !this.refreshToken ||
-                !this.tokenExpirationDate ||
-                Date.now() >= this.tokenExpirationDate
-            ) {
-                this.log.info('Fetching JWT token...');
+            await this.refreshAccessToken();
+            return;
+        }
 
-                const jwtResponse = await this.gigya.accounts.getJWT({
-                    targetUID: this.uid,
-                    fields: 'country',
-                    oauth_token: this.oauthToken ?? undefined,
-                    secret: this.sessionSecret ?? undefined
-                });
+        /* Read the file and parse the JSON. */
+        const json = fs.readFileSync(storagePath, 'utf8');
+        const data = JSON.parse(json);
 
-                const tokenResponse = await axiosAuth.post<TokenResponse>(
-                    '/one-account-authorization/api/v1/token',
-                    {
-                        grantType:
-                            'urn:ietf:params:oauth:grant-type:token-exchange',
-                        clientId: CLIENT_ID,
-                        idToken: jwtResponse.id_token,
-                        scope: ''
-                    },
-                    {
-                        baseURL: API_URL,
-                        headers: {
-                            'Origin-Country-Code': 'PL'
-                        }
-                    }
-                );
-
-                this.accessToken = tokenResponse.data.accessToken;
-                this.refreshToken = tokenResponse.data.refreshToken;
-                this.tokenExpirationDate =
-                    Date.now() + tokenResponse.data.expiresIn * 1000;
-
-                this.log.info('JWT token successfully fetched!');
+        /* If the file version is not 1, get the refresh token from the config to get a new access token. */
+        if (data.version !== 1) {
+            this.refreshToken = this.config.refreshToken;
+            if (!this.refreshToken) {
+                throw new Error('Refresh token not found');
             }
 
-            const json = JSON.stringify({
-                uid: this.uid,
-                oauthToken: this.oauthToken,
-                sessionSecret: this.sessionSecret,
-
-                accessToken: this.accessToken,
-                refreshToken: this.refreshToken,
-                tokenExpirationDate: this.tokenExpirationDate
-            });
-
-            fs.writeFile(storagePath, json, 'utf8', (err) => {
-                if (err) {
-                    this.log.error(
-                        'An error occurred while saving auth data: ',
-                        err.message
-                    );
-                }
-            });
-        } catch (err) {
-            const message =
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (err as any).response?.data?.message ?? (err as Error).message;
-
-            throw new Error("Couldn't not sign in to Electrolux: " + message);
+            await this.refreshAccessToken();
+            return;
         }
+
+        /* Set the auth data from the file. */
+        this.accessToken = data.accessToken;
+        this.refreshToken = data.refreshToken;
+        this.tokenExpirationDate = data.tokenExpirationDate;
     }
 
     async refreshAccessToken() {
@@ -252,16 +166,10 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
         this.log.info('Refreshing access token...');
 
-        const response = await axiosAuth.post<TokenResponse>(
-            '/token',
+        const response = await this.client.post<TokenResponse>(
+            '/api/v1/token/refresh',
             {
-                grantType: 'refresh_token',
-                clientId: CLIENT_ID,
-                refreshToken: this.refreshToken,
-                scope: ''
-            },
-            {
-                baseURL: `${this.regionalBaseUrl}/one-account-authorization/api/v1`
+                refreshToken: this.refreshToken
             }
         );
 
@@ -270,30 +178,53 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         this.tokenExpirationDate = Date.now() + response.data.expiresIn * 1000;
 
         this.log.info('Access token refreshed!');
+
+        const json = JSON.stringify({
+            version: 1,
+            accessToken: this.accessToken,
+            refreshToken: this.refreshToken,
+            tokenExpirationDate: this.tokenExpirationDate
+        });
+
+        const storagePath = path.format({
+            dir: this.api.user.storagePath(),
+            base: 'homebridge_electrolux_device_persist.json'
+        });
+
+        fs.writeFile(storagePath, json, 'utf8', (err) => {
+            if (err) {
+                this.log.error(
+                    'An error occurred while saving auth data: ',
+                    err.message
+                );
+            }
+        });
     }
 
     private async getAppliances() {
-        const response = await axiosAppliance.get<Appliances>('/appliances', {
-            baseURL: `${this.regionalBaseUrl}/appliance/api/v2`,
-            headers: {
-                Authorization: `Bearer ${this.accessToken}`
-            }
-        });
+        const response =
+            await this.client.get<Appliances>('/api/v1/appliances');
         return response.data;
     }
 
-    async getApplianceCapabilities(
-        applianceId: string
-    ): Promise<Capabilities | null> {
+    async getApplianceInfo(applianceId: string): Promise<Capabilities | null> {
         try {
-            const response = await axiosAppliance.get<Capabilities>(
-                `/appliances/${applianceId}/capabilities`,
-                {
-                    baseURL: `${this.regionalBaseUrl}/appliance/api/v2`,
-                    headers: {
-                        Authorization: `Bearer ${this.accessToken}`
-                    }
-                }
+            const response = await this.client.get<Capabilities>(
+                `/api/v1/appliances/${applianceId}/info`
+            );
+
+            return response.data;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    async getApplianceState(
+        applianceId: string
+    ): Promise<ApplianceState | null> {
+        try {
+            const response = await this.client.get<ApplianceState>(
+                `/api/v1/appliances/${applianceId}/state`
             );
 
             return response.data;
@@ -314,16 +245,28 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
         const appliances = await this.getAppliances();
 
-        appliances.map(async (appliance) => {
-            if (!DEVICES[appliance.applianceData.modelName]) {
+        appliances.map(async (applianceItem) => {
+            if (!DEVICES[applianceItem.applianceType]) {
                 this.log.warn(
                     'Accessory not found for model: ',
-                    appliance.applianceData.modelName
+                    applianceItem.applianceType
                 );
                 return;
             }
 
-            const uuid = this.api.hap.uuid.generate(appliance.applianceId);
+            const state = await this.getApplianceState(
+                applianceItem.applianceId
+            );
+
+            if (!state) {
+                this.log.warn(
+                    'State not found for appliance: ',
+                    applianceItem.applianceId
+                );
+                return;
+            }
+
+            const uuid = this.api.hap.uuid.generate(applianceItem.applianceId);
 
             const existingAccessory = this.accessories.find(
                 (accessory) => accessory.platformAccessory.UUID === uuid
@@ -334,13 +277,11 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                 If the capabilities are not in the context, fetch them from the API.
                 If the capabilities equals null, that means the appliance capabilities is not supported.
             */
-            const capabilities =
-                existingAccessory?.platformAccessory.context.capabilities !==
+            const appliance =
+                existingAccessory?.platformAccessory.context.appliance !==
                 undefined
-                    ? existingAccessory.platformAccessory.context.capabilities
-                    : await this.getApplianceCapabilities(
-                          appliance.applianceId
-                      );
+                    ? existingAccessory.platformAccessory.context.appliance
+                    : await this.getApplianceInfo(applianceItem.applianceId);
 
             if (existingAccessory) {
                 this.log.info(
@@ -348,32 +289,31 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                     existingAccessory.platformAccessory.displayName
                 );
                 existingAccessory.controller = new DEVICES[
-                    appliance.applianceData.modelName
+                    applianceItem.applianceType
                 ](
                     this,
                     existingAccessory.platformAccessory,
-                    appliance,
-                    capabilities
+                    applianceItem,
+                    state,
+                    appliance
                 );
                 return;
             }
 
-            this.log.info(
-                'Adding new accessory:',
-                appliance.applianceData.applianceName
-            );
+            this.log.info('Adding new accessory:', applianceItem.applianceName);
 
             const platformAccessory = new this.api.platformAccessory(
-                appliance.applianceData.applianceName,
+                applianceItem.applianceName,
                 uuid
             );
             const accessory = new ElectroluxAccessory(
                 platformAccessory,
-                new DEVICES[appliance.applianceData.modelName](
+                new DEVICES[applianceItem.applianceType](
                     this,
                     platformAccessory,
-                    appliance,
-                    capabilities
+                    applianceItem,
+                    state,
+                    appliance
                 )
             );
             this.accessories.push(accessory);
@@ -405,7 +345,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
             const appliances = await this.getAppliances();
 
-            appliances.map((appliance) => {
+            appliances.map(async (appliance) => {
                 const uuid = this.api.hap.uuid.generate(appliance.applianceId);
 
                 const existingAccessory = this.accessories.find(
@@ -415,7 +355,14 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                     return;
                 }
 
-                existingAccessory.controller?.update(appliance);
+                const state = await this.getApplianceState(
+                    appliance.applianceId
+                );
+                if (!state) {
+                    return;
+                }
+
+                existingAccessory.controller?.update(state);
             });
 
             this.log.debug('Appliances status polled!');

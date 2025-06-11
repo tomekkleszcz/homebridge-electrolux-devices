@@ -5,14 +5,14 @@
     "schema": {
         "type": "object",
         "properties": {
-            "email": {
-                "title": "Email address",
+            "apiKey": {
+                "title": "API key",
                 "type": "string",
                 "required": true,
                 "default": ""
             },
-            "password": {
-                "title": "Password",
+            "refreshToken": {
+                "title": "Refresh token",
                 "type": "string",
                 "required": true,
                 "default": ""

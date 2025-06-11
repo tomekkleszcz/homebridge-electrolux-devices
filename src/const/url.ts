@@ -1,1 +1,1 @@
-export const API_URL = 'https://api.ocp.electrolux.one';
+export const API_URL = 'https://api.developer.electrolux.one';

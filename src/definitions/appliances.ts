@@ -1,3 +1,8 @@
-import { Appliance } from './appliance';
+export type Appliances = ApplianceItem[];
 
-export type Appliances = Appliance[];
+export type ApplianceItem = {
+    applianceId: string;
+    applianceName: string;
+    applianceType: string;
+    created: Date;
+};
