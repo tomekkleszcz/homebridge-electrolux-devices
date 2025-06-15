@@ -3,8 +3,9 @@ import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../../../platform';
 import { Appliance } from '../../../definitions/appliance';
 import { ElectroluxAccessoryController } from '../../controller';
-import { Capabilities } from '../../../definitions/capabilities';
 import { isParticleFilter } from '../../../util/filters';
+import { ApplianceItem } from '../../../definitions/appliances';
+import { ApplianceState } from '../../../definitions/applianceState';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
@@ -13,10 +14,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
-        readonly _appliance: Appliance,
-        readonly _capabilities: Capabilities | undefined
+        readonly _item: ApplianceItem,
+        readonly _state: ApplianceState,
+        readonly _appliance: Appliance
     ) {
-        super(_platform, _accessory, _appliance, _capabilities);
+        super(_platform, _accessory, _item, _state, _appliance);
 
         this.accessory
             .getService(this.platform.Service.AccessoryInformation)!
@@ -26,11 +28,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
             )
             .setCharacteristic(
                 this.platform.Characteristic.Model,
-                this.appliance.applianceData.modelName
+                this.appliance.applianceInfo.model
             )
             .setCharacteristic(
                 this.platform.Characteristic.SerialNumber,
-                this.appliance.applianceId
+                this.item.applianceId
             );
 
         this.airPurifierService =
@@ -39,7 +41,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.airPurifierService.setCharacteristic(
             this.platform.Characteristic.Name,
-            this.appliance.applianceData.applianceName
+            this.item.applianceName
         );
 
         this.airPurifierService
@@ -106,8 +108,8 @@ export class AirPurifier extends ElectroluxAccessoryController {
             );
 
         if (
-            isParticleFilter(this.appliance.properties.reported.FilterType_1) ||
-            isParticleFilter(this.appliance.properties.reported.FilterType_2)
+            isParticleFilter(this.state.properties.reported.FilterType_1) ||
+            isParticleFilter(this.state.properties.reported.FilterType_2)
         ) {
             this.particleFilterService =
                 this.accessory.getService(
@@ -147,16 +149,16 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getActive(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Workmode === 'PowerOff'
+        return this.state.properties.reported.Workmode === 'PowerOff'
             ? this.platform.Characteristic.Active.INACTIVE
             : this.platform.Characteristic.Active.ACTIVE;
     }
 
     async setActive(value: CharacteristicValue) {
         if (
-            (this.appliance.properties.reported.Workmode === 'PowerOff' &&
+            (this.state.properties.reported.Workmode === 'PowerOff' &&
                 value === this.platform.Characteristic.Active.ACTIVE) ||
-            (this.appliance.properties.reported.Workmode !== 'PowerOff' &&
+            (this.state.properties.reported.Workmode !== 'PowerOff' &&
                 value === this.platform.Characteristic.Active.INACTIVE)
         ) {
             await this.sendCommand({
@@ -166,7 +168,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
                         : 'PowerOff'
             });
 
-            this.appliance.properties.reported.Workmode =
+            this.state.properties.reported.Workmode =
                 value === this.platform.Characteristic.Active.ACTIVE
                     ? 'Auto'
                     : 'PowerOff';
@@ -181,7 +183,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
             this.airPurifierService.updateCharacteristic(
                 this.platform.Characteristic.RotationSpeed,
                 value === this.platform.Characteristic.Active.ACTIVE
-                    ? this.appliance.properties.reported.Fanspeed
+                    ? this.state.properties.reported.Fanspeed
                     : 0
             );
         }
@@ -196,7 +198,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getCurrentAirPurifierState(): Promise<CharacteristicValue> {
-        switch (this.appliance.properties.reported.Workmode) {
+        switch (this.state.properties.reported.Workmode) {
             case 'Manual':
                 return this.platform.Characteristic.CurrentAirPurifierState
                     .PURIFYING_AIR;
@@ -210,7 +212,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getTargetAirPurifierState(): Promise<CharacteristicValue> {
-        switch (this.appliance.properties.reported.Workmode) {
+        switch (this.state.properties.reported.Workmode) {
             case 'Manual':
                 return this.platform.Characteristic.TargetAirPurifierState
                     .MANUAL;
@@ -236,11 +238,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
             Workmode: workMode
         });
 
-        this.appliance.properties.reported.Workmode = workMode;
+        this.state.properties.reported.Workmode = workMode;
     }
 
     async getLockPhysicalControls(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.SafetyLock
+        return this.state.properties.reported.SafetyLock
             ? this.platform.Characteristic.LockPhysicalControls
                   .CONTROL_LOCK_ENABLED
             : this.platform.Characteristic.LockPhysicalControls
@@ -255,14 +257,14 @@ export class AirPurifier extends ElectroluxAccessoryController {
                     .CONTROL_LOCK_ENABLED
         });
 
-        this.appliance.properties.reported.SafetyLock =
+        this.state.properties.reported.SafetyLock =
             value ===
             this.platform.Characteristic.LockPhysicalControls
                 .CONTROL_LOCK_ENABLED;
     }
 
     async getRotationSpeed(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Fanspeed;
+        return this.state.properties.reported.Fanspeed;
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
@@ -271,7 +273,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 Workmode: 'PowerOff'
             });
 
-            this.appliance.properties.reported.Workmode = 'PowerOff';
+            this.state.properties.reported.Workmode = 'PowerOff';
             this.airPurifierService.updateCharacteristic(
                 this.platform.Characteristic.CurrentAirPurifierState,
                 this.platform.Characteristic.CurrentAirPurifierState.INACTIVE
@@ -281,11 +283,11 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 this.platform.Characteristic.TargetAirPurifierState.AUTO
             );
             return;
-        } else if (this.appliance.properties.reported.Workmode === 'Auto') {
+        } else if (this.state.properties.reported.Workmode === 'Auto') {
             await this.sendCommand({
                 Workmode: 'Manual'
             });
-            this.appliance.properties.reported.Workmode = 'Manual';
+            this.state.properties.reported.Workmode = 'Manual';
 
             this.airPurifierService.updateCharacteristic(
                 this.platform.Characteristic.TargetAirPurifierState,
@@ -297,15 +299,15 @@ export class AirPurifier extends ElectroluxAccessoryController {
             Fanspeed: value
         });
 
-        this.appliance.properties.reported.Fanspeed = value as number;
+        this.state.properties.reported.Fanspeed = value as number;
     }
 
     async getParticleFilterChangeIndication(): Promise<CharacteristicValue> {
         const filterLife = isParticleFilter(
-            this.appliance.properties.reported.FilterType_1
+            this.state.properties.reported.FilterType_1
         )
-            ? this.appliance.properties.reported.FilterLife_1
-            : this.appliance.properties.reported.FilterLife_2;
+            ? this.state.properties.reported.FilterLife_1
+            : this.state.properties.reported.FilterLife_2;
 
         return filterLife <= 10
             ? this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER
@@ -313,15 +315,15 @@ export class AirPurifier extends ElectroluxAccessoryController {
     }
 
     async getParticleFilterLifeLevel(): Promise<CharacteristicValue> {
-        return isParticleFilter(this.appliance.properties.reported.FilterType_1)
-            ? this.appliance.properties.reported.FilterLife_1
-            : this.appliance.properties.reported.FilterLife_2;
+        return isParticleFilter(this.state.properties.reported.FilterType_1)
+            ? this.state.properties.reported.FilterLife_1
+            : this.state.properties.reported.FilterLife_2;
     }
 
-    async update(appliance: Appliance) {
-        this.appliance = appliance;
+    async update(state: ApplianceState) {
+        this.state = state;
 
-        switch (this.appliance.properties.reported.Workmode) {
+        switch (this.state.properties.reported.Workmode) {
             case 'Manual':
                 this.airPurifierService.updateCharacteristic(
                     this.platform.Characteristic.Active,
@@ -371,7 +373,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
 
         this.airPurifierService.updateCharacteristic(
             this.platform.Characteristic.LockPhysicalControls,
-            this.appliance.properties.reported.SafetyLock
+            this.state.properties.reported.SafetyLock
                 ? this.platform.Characteristic.LockPhysicalControls
                       .CONTROL_LOCK_ENABLED
                 : this.platform.Characteristic.LockPhysicalControls
@@ -379,14 +381,14 @@ export class AirPurifier extends ElectroluxAccessoryController {
         );
         this.airPurifierService.updateCharacteristic(
             this.platform.Characteristic.RotationSpeed,
-            this.appliance.properties.reported.Fanspeed
+            this.state.properties.reported.Fanspeed
         );
 
         const filterLife = isParticleFilter(
-            this.appliance.properties.reported.FilterType_1
+            this.state.properties.reported.FilterType_1
         )
-            ? this.appliance.properties.reported.FilterLife_1
-            : this.appliance.properties.reported.FilterLife_2;
+            ? this.state.properties.reported.FilterLife_1
+            : this.state.properties.reported.FilterLife_2;
 
         this.particleFilterService?.updateCharacteristic(
             this.platform.Characteristic.FilterChangeIndication,

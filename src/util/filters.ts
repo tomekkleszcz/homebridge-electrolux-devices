@@ -1,4 +1,4 @@
-import { FilterType } from '../definitions/appliance';
+import { FilterType } from '../definitions/applianceState';
 
 export const isParticleFilter = (filterType: FilterType) =>
     filterType === FilterType.ParticleFilter1 ||

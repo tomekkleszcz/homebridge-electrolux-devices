@@ -1,9 +1,10 @@
-import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
+import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../../../platform';
 import { AirPurifier } from './airPurifier';
 import { ElectroluxAccessoryController } from '../../controller';
 import { Appliance } from '../../../definitions/appliance';
-import { Capabilities } from '../../../definitions/capabilities';
+import { ApplianceState } from '../../../definitions/applianceState';
+import { ApplianceItem } from '../../../definitions/appliances';
 
 export class UltimateHome500 extends AirPurifier {
     private uvLightService: Service;
@@ -12,10 +13,11 @@ export class UltimateHome500 extends AirPurifier {
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
-        readonly _appliance: Appliance,
-        readonly _capabilities: Capabilities
+        readonly _item: ApplianceItem,
+        readonly _state: ApplianceState,
+        readonly _appliance: Appliance
     ) {
-        super(_platform, _accessory, _appliance, _capabilities);
+        super(_platform, _accessory, _item, _state, _appliance);
 
         this.uvLightService =
             this.accessory.getService(this.platform.Service.Lightbulb) ||
@@ -53,7 +55,7 @@ export class UltimateHome500 extends AirPurifier {
     }
 
     async getUVLight(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.UVState === 'on';
+        return this.state.properties.reported.UVState === 'on';
     }
 
     async setUVLight(value: CharacteristicValue) {
@@ -61,19 +63,17 @@ export class UltimateHome500 extends AirPurifier {
             UVState: value ? 'On' : 'Off'
         });
 
-        this.appliance.properties.reported.UVState = value ? 'on' : 'off';
+        this.state.properties.reported.UVState = value ? 'on' : 'off';
     }
 
     async getAirQuality(): Promise<CharacteristicValue> {
-        if (this.appliance.properties.reported.PM2_5_approximate <= 25) {
+        if (this.state.properties.reported.PM2_5_approximate <= 25) {
             return this.platform.Characteristic.AirQuality.EXCELLENT;
-        } else if (this.appliance.properties.reported.PM2_5_approximate <= 50) {
+        } else if (this.state.properties.reported.PM2_5_approximate <= 50) {
             return this.platform.Characteristic.AirQuality.GOOD;
-        } else if (this.appliance.properties.reported.PM2_5_approximate <= 75) {
+        } else if (this.state.properties.reported.PM2_5_approximate <= 75) {
             return this.platform.Characteristic.AirQuality.FAIR;
-        } else if (
-            this.appliance.properties.reported.PM2_5_approximate <= 100
-        ) {
+        } else if (this.state.properties.reported.PM2_5_approximate <= 100) {
             return this.platform.Characteristic.AirQuality.INFERIOR;
         } else {
             return this.platform.Characteristic.AirQuality.POOR;
@@ -81,10 +81,10 @@ export class UltimateHome500 extends AirPurifier {
     }
 
     async getPM2_5Density(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.PM2_5_approximate;
+        return this.state.properties.reported.PM2_5_approximate;
     }
 
-    async update(appliance: Appliance) {
-        super.update(appliance);
+    async update(state: ApplianceState) {
+        super.update(state);
     }
 }

@@ -4,7 +4,8 @@ import { ElectroluxDevicesPlatform } from '../../../platform';
 import { ElectroluxAccessoryController } from '../../controller';
 import { Appliance } from '../../../definitions/appliance';
 import { tvocPPBToVocDensity } from '../../../util/voc';
-import { Capabilities } from '../../../definitions/capabilities';
+import { ApplianceState } from '../../../definitions/applianceState';
+import { ApplianceItem } from '../../../definitions/appliances';
 
 export class PureA9 extends AirPurifier {
     private ionizerService: Service;
@@ -16,10 +17,11 @@ export class PureA9 extends AirPurifier {
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory<ElectroluxAccessoryController>,
-        readonly _appliance: Appliance,
-        readonly _capabilities: Capabilities
+        readonly _item: ApplianceItem,
+        readonly _state: ApplianceState,
+        readonly _appliance: Appliance
     ) {
-        super(_platform, _accessory, _appliance, _capabilities);
+        super(_platform, _accessory, _item, _state, _appliance);
 
         this.ionizerService =
             this.accessory.getService(this.platform.Service.Switch) ||
@@ -123,7 +125,7 @@ export class PureA9 extends AirPurifier {
     }
 
     async getIonizer(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Ionizer;
+        return this.state.properties.reported.Ionizer;
     }
 
     async setIonizer(value: CharacteristicValue) {
@@ -131,17 +133,17 @@ export class PureA9 extends AirPurifier {
             Ionizer: value
         });
 
-        this.appliance.properties.reported.Ionizer = value as boolean;
+        this.state.properties.reported.Ionizer = value as boolean;
     }
 
     async getAirQuality(): Promise<CharacteristicValue> {
-        if (this.appliance.properties.reported.PM2_5 <= 25) {
+        if (this.state.properties.reported.PM2_5 <= 25) {
             return this.platform.Characteristic.AirQuality.EXCELLENT;
-        } else if (this.appliance.properties.reported.PM2_5 <= 50) {
+        } else if (this.state.properties.reported.PM2_5 <= 50) {
             return this.platform.Characteristic.AirQuality.GOOD;
-        } else if (this.appliance.properties.reported.PM2_5 <= 75) {
+        } else if (this.state.properties.reported.PM2_5 <= 75) {
             return this.platform.Characteristic.AirQuality.FAIR;
-        } else if (this.appliance.properties.reported.PM2_5 <= 100) {
+        } else if (this.state.properties.reported.PM2_5 <= 100) {
             return this.platform.Characteristic.AirQuality.INFERIOR;
         } else {
             return this.platform.Characteristic.AirQuality.POOR;
@@ -149,17 +151,17 @@ export class PureA9 extends AirPurifier {
     }
 
     async getPM2_5Density(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.PM2_5;
+        return this.state.properties.reported.PM2_5;
     }
 
     async getPM10Density(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.PM10;
+        return this.state.properties.reported.PM10;
     }
 
     async getVOCDensity(): Promise<CharacteristicValue> {
         const vocDensity = tvocPPBToVocDensity(
-            this.appliance.properties.reported.TVOC,
-            this.appliance.properties.reported.Temp,
+            this.state.properties.reported.TVOC,
+            this.state.properties.reported.Temp,
             this._platform.config.vocMolecularWeight ?? 30.026
         );
 
@@ -172,15 +174,15 @@ export class PureA9 extends AirPurifier {
     }
 
     async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Humidity;
+        return this.state.properties.reported.Humidity;
     }
 
     async getCurrentTemperature(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.Temp;
+        return this.state.properties.reported.Temp;
     }
 
     async getCarbonDioxideDetected(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.ECO2 >
+        return this.state.properties.reported.ECO2 >
             this.platform.config.carbonDioxideSensorAlarmValue
             ? this.platform.Characteristic.CarbonDioxideDetected
                   .CO2_LEVELS_ABNORMAL
@@ -189,15 +191,15 @@ export class PureA9 extends AirPurifier {
     }
 
     async getCarbonDioxideLevel(): Promise<CharacteristicValue> {
-        return this.appliance.properties.reported.ECO2;
+        return this.state.properties.reported.ECO2;
     }
 
-    async update(appliance: Appliance) {
-        super.update(appliance);
+    async update(state: ApplianceState) {
+        super.update(state);
 
         this.ionizerService.updateCharacteristic(
             this.platform.Characteristic.On,
-            this.appliance.properties.reported.Ionizer ? 1 : 0
+            this.state.properties.reported.Ionizer ? 1 : 0
         );
 
         this.airQualityService.updateCharacteristic(
@@ -206,11 +208,11 @@ export class PureA9 extends AirPurifier {
         );
         this.airQualityService.updateCharacteristic(
             this.platform.Characteristic.PM2_5Density,
-            this.appliance.properties.reported.PM2_5
+            this.state.properties.reported.PM2_5
         );
         this.airQualityService.updateCharacteristic(
             this.platform.Characteristic.PM10Density,
-            this.appliance.properties.reported.PM10
+            this.state.properties.reported.PM10
         );
         this.airQualityService.updateCharacteristic(
             this.platform.Characteristic.VOCDensity,
@@ -219,17 +221,17 @@ export class PureA9 extends AirPurifier {
 
         this.humiditySensorService.updateCharacteristic(
             this.platform.Characteristic.CurrentRelativeHumidity,
-            this.appliance.properties.reported.Humidity
+            this.state.properties.reported.Humidity
         );
 
         this.temperatureSensorService.updateCharacteristic(
             this.platform.Characteristic.CurrentTemperature,
-            this.appliance.properties.reported.Temp
+            this.state.properties.reported.Temp
         );
 
         this.carbonDioxideSensorService.updateCharacteristic(
             this.platform.Characteristic.CarbonDioxideDetected,
-            this.appliance.properties.reported.CO2 >
+            this.state.properties.reported.CO2 >
                 this.platform.config.carbonDioxideSensorAlarmValue
                 ? this.platform.Characteristic.CarbonDioxideDetected
                       .CO2_LEVELS_ABNORMAL
@@ -238,7 +240,7 @@ export class PureA9 extends AirPurifier {
         );
         this.carbonDioxideSensorService.updateCharacteristic(
             this.platform.Characteristic.CarbonDioxideLevel,
-            this.appliance.properties.reported.CO2
+            this.state.properties.reported.CO2
         );
     }
 }

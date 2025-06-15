@@ -1,27 +1,30 @@
-import { axiosAppliance } from './../services/axios';
-import { Appliance } from '../definitions/appliance';
+import { ApplianceItem } from '../definitions/appliances';
 import { CharacteristicValue, PlatformAccessory } from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../platform';
-import { Capabilities } from '../definitions/capabilities';
+import { Appliance } from '../definitions/appliance';
+import { ApplianceState } from '../definitions/applianceState';
 
 export abstract class ElectroluxAccessoryController {
     platform: ElectroluxDevicesPlatform;
     accessory: PlatformAccessory;
+    item: ApplianceItem;
+    state: ApplianceState;
     appliance: Appliance;
-    capabilities: Capabilities | undefined;
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
         readonly _accessory: PlatformAccessory,
-        readonly _appliance: Appliance,
-        readonly _capabilities: Capabilities | undefined
+        readonly _item: ApplianceItem,
+        readonly _state: ApplianceState,
+        readonly _appliance: Appliance
     ) {
         this.platform = _platform;
         this.accessory = _accessory;
+        this.item = _item;
         this.appliance = _appliance;
-        this.capabilities = _capabilities;
+        this.state = _state;
 
-        this.accessory.context.capabilities = this.capabilities;
+        this.accessory.context.capabilities = this.appliance;
     }
 
     async sendCommand(
@@ -35,20 +38,18 @@ export abstract class ElectroluxAccessoryController {
                 await this.platform.refreshAccessToken();
             }
 
-            await axiosAppliance.put(
-                `/appliances/${this.appliance.applianceId}/command`,
-                body,
-                {
-                    baseURL: `${this.platform.regionalBaseUrl}/appliance/api/v2`,
-                    headers: {
-                        Authorization: `Bearer ${this.platform.accessToken}`
-                    }
-                }
+            await this.platform.client.put(
+                `/api/v1/appliances/${this.item.applianceId}/command`,
+                body
             );
         } catch (error: unknown) {
             this.platform.log.error(
                 'An error occurred while sending command: ',
-                (error as Error).message
+                (error as Error).message,
+                'url: ',
+                `/api/v1/appliances/${this.item.applianceId}/command`,
+                'body: ',
+                body
             );
         }
     }
@@ -57,7 +58,7 @@ export abstract class ElectroluxAccessoryController {
         getter: () => Promise<CharacteristicValue>
     ): () => Promise<CharacteristicValue> {
         return async () => {
-            if (this.appliance.connectionState === 'Disconnected') {
+            if (this.state.connectionState === 'Disconnected') {
                 throw new this.platform.api.hap.HapStatusError(
                     this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
                 );
@@ -71,7 +72,7 @@ export abstract class ElectroluxAccessoryController {
         setter: (value: CharacteristicValue) => Promise<void>
     ): (value: CharacteristicValue) => Promise<void> {
         return async (value: CharacteristicValue) => {
-            if (this.appliance.connectionState === 'Disconnected') {
+            if (this.state.connectionState === 'Disconnected') {
                 throw new this.platform.api.hap.HapStatusError(
                     this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
                 );
@@ -81,5 +82,5 @@ export abstract class ElectroluxAccessoryController {
         };
     }
 
-    abstract update(appliance: Appliance): void;
+    abstract update(state: ApplianceState): void;
 }

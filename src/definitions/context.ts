@@ -1,5 +1,5 @@
-import { Capabilities } from './capabilities';
+import { Appliance } from './appliance';
 
 export type Context = {
-    capabilities?: Capabilities | null;
+    appliance?: Appliance | null;
 };
