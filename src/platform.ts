@@ -16,7 +16,7 @@ import { ElectroluxAccessory } from './accessories/accessory';
 import fs from 'fs';
 import path from 'path';
 import { API_URL } from './const/url';
-import { Appliance, Capabilities } from './definitions/appliance';
+import { Appliance } from './definitions/appliance';
 import { Context } from './definitions/context';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { ApplianceState } from './definitions/applianceState';
@@ -93,7 +93,9 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     async createClient() {
         if (!this.config.apiKey) {
-            throw new Error('Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.');
+            throw new Error(
+                'Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.'
+            );
         }
 
         this.client = axios.create({
@@ -146,7 +148,9 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         if (data.version !== 1) {
             this.refreshToken = this.config.refreshToken;
             if (!this.refreshToken) {
-                throw new Error('Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.');
+                throw new Error(
+                    'Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.'
+                );
             }
 
             await this.refreshAccessToken();
@@ -221,7 +225,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             );
 
             return response.data;
-        } catch (err) {
+        } catch {
             return null;
         }
     }
@@ -235,7 +239,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             );
 
             return response.data;
-        } catch (err) {
+        } catch {
             return null;
         }
     }
@@ -259,21 +263,25 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
                     applianceItem.applianceType
                 );
 
-                const applianceInfo = await this.getApplianceInfo(applianceItem.applianceId);
+                const applianceInfo = await this.getApplianceInfo(
+                    applianceItem.applianceId
+                );
 
-               const deviceData = {
-                  appliance: {
-                    type: applianceItem.applianceType,
-                    deviceType: applianceInfo?.applianceInfo.deviceType,
-                    model: applianceInfo?.applianceInfo.model,
-                    variant: applianceInfo?.applianceInfo.variant,
-                    colour: applianceInfo?.applianceInfo.colour,
-                  },
-                  capabilities: applianceInfo?.capabilities
-               }
+                const deviceData = {
+                    appliance: {
+                        type: applianceItem.applianceType,
+                        deviceType: applianceInfo?.applianceInfo.deviceType,
+                        model: applianceInfo?.applianceInfo.model,
+                        variant: applianceInfo?.applianceInfo.variant,
+                        colour: applianceInfo?.applianceInfo.colour
+                    },
+                    capabilities: applianceInfo?.capabilities
+                };
 
-                this.log.warn('It looks like this appliance is not supported by the plugin. Please create a new issue here: https://github.com/tomekkleszcz/homebridge-electrolux-devices/issues and include the log below in the description.')
-                this.log.warn(JSON.stringify(deviceData))
+                this.log.warn(
+                    'It looks like this appliance is not supported by the plugin. Please create a new issue here: https://github.com/tomekkleszcz/homebridge-electrolux-devices/issues and include the log below in the description.'
+                );
+                this.log.warn(JSON.stringify(deviceData));
                 return;
             }
 
