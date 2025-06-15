@@ -1,13 +1,9 @@
-import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
-import prettier from 'eslint-config-prettier';
-import prettierPlugin from 'eslint-plugin-prettier';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+const eslint = require('@eslint/js');
+const tseslint = require('typescript-eslint');
+const prettier = require('eslint-config-prettier');
+const prettierPlugin = require('eslint-plugin-prettier');
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-export default tseslint.config(
+module.exports = tseslint.config(
     eslint.configs.recommended,
     ...tseslint.configs.recommended,
     prettier,

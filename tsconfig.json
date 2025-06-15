@@ -17,6 +17,6 @@
             "homebridge": ["./node_modules/homebridge/dist/index.d.ts"]
         }
     },
-    "include": ["src/", "eslint.config.js"],
+    "include": ["src/", "eslint.config.cjs"],
     "exclude": ["**/*.spec.ts"]
 }
