@@ -19,16 +19,17 @@ This is a plugin for connecting Electrolux devices which are controlled by the [
 3. Open the Electrolux for Developers Dashboard here: https://developer.electrolux.one/login
 4. Sign in using your credentials from the Electrolux app
 5. Create new API Key and enter it in the plugin's configuration
-6. Generate new token under "Authorization" section 
-7. Copy the Refresh Token and paste it in the plugin's configuration
+6. Generate new token under "Authorization" section
+7. Copy the Refresh Token and paste it in the plugin's configuration.
+8. Run the plugin :) The refresh token you generate expires in ~12h, so please make sure you enter a fresh one into the plugin's configuration. After you set it once, the plugin will handle token refresh for you automatically.
 
 ## 🌡️ Supported devices
 
--   Comfort 600 air conditioner
--   Well A5/AX 5 air purifier
--   Well A7 air purifier
--   Pure A9/AX 9 air purifier
--   UltimateHome 500 air purifier
+- Comfort 600 air conditioner
+- Well A5/AX 5 air purifier
+- Well A7 air purifier
+- Pure A9/AX 9 air purifier
+- UltimateHome 500 air purifier
 
 If your device is not on the list, please create the issue. I'll be more than happy to implement the support for your device. 😄
 
