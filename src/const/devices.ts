@@ -6,7 +6,7 @@ import { AirPurifier } from '../accessories/devices/airPurifier/airPurifier';
 
 export const DEVICES = {
     /* Air conditioners */
-    // Azul: Comfort600,
+    Azul: Comfort600,
 
     /* Air purifiers */
     WELLA7: WellA7,
