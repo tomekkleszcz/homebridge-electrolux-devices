@@ -16,7 +16,7 @@ import { ElectroluxAccessory } from './accessories/accessory';
 import fs from 'fs';
 import path from 'path';
 import { API_URL } from './const/url';
-import { Capabilities } from './definitions/appliance';
+import { Appliance, Capabilities } from './definitions/appliance';
 import { Context } from './definitions/context';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { ApplianceState } from './definitions/applianceState';
@@ -93,7 +93,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
     async createClient() {
         if (!this.config.apiKey) {
-            throw new Error('API Key not found');
+            throw new Error('Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.');
         }
 
         this.client = axios.create({
@@ -146,7 +146,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         if (data.version !== 1) {
             this.refreshToken = this.config.refreshToken;
             if (!this.refreshToken) {
-                throw new Error('Refresh token not found');
+                throw new Error('Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.');
             }
 
             await this.refreshAccessToken();
@@ -157,6 +157,13 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         this.accessToken = data.accessToken;
         this.refreshToken = data.refreshToken;
         this.tokenExpirationDate = data.tokenExpirationDate;
+
+        if (
+            !this.tokenExpirationDate ||
+            Date.now() >= this.tokenExpirationDate
+        ) {
+            await this.refreshAccessToken();
+        }
     }
 
     async refreshAccessToken() {
@@ -207,9 +214,9 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         return response.data;
     }
 
-    async getApplianceInfo(applianceId: string): Promise<Capabilities | null> {
+    async getApplianceInfo(applianceId: string): Promise<Appliance | null> {
         try {
-            const response = await this.client.get<Capabilities>(
+            const response = await this.client.get<Appliance>(
                 `/api/v1/appliances/${applianceId}/info`
             );
 
@@ -248,9 +255,25 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         appliances.map(async (applianceItem) => {
             if (!DEVICES[applianceItem.applianceType]) {
                 this.log.warn(
-                    'Accessory not found for model: ',
+                    'Accessory not found for model:',
                     applianceItem.applianceType
                 );
+
+                const applianceInfo = await this.getApplianceInfo(applianceItem.applianceId);
+
+               const deviceData = {
+                  appliance: {
+                    type: applianceItem.applianceType,
+                    deviceType: applianceInfo?.applianceInfo.deviceType,
+                    model: applianceInfo?.applianceInfo.model,
+                    variant: applianceInfo?.applianceInfo.variant,
+                    colour: applianceInfo?.applianceInfo.colour,
+                  },
+                  capabilities: applianceInfo?.capabilities
+               }
+
+                this.log.warn('It looks like this appliance is not supported by the plugin. Please create a new issue here: https://github.com/tomekkleszcz/homebridge-electrolux-devices/issues and include the log below in the description.')
+                this.log.warn(JSON.stringify(deviceData))
                 return;
             }
 
@@ -260,7 +283,7 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
             if (!state) {
                 this.log.warn(
-                    'State not found for appliance: ',
+                    'State not found for appliance:',
                     applianceItem.applianceId
                 );
                 return;

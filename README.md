@@ -16,7 +16,11 @@ This is a plugin for connecting Electrolux devices which are controlled by the [
 
 1. Connect all your Electrolux devices to the app and ensure you are able to control them.
 2. Install this plugin using the `npm install -g homebridge-electrolux-devices` command
-3. Configure the plugin using the schema.
+3. Open the Electrolux for Developers Dashboard here: https://developer.electrolux.one/login
+4. Sign in using your credentials from the Electrolux app
+5. Create new API Key and enter it in the plugin's configuration
+6. Generate new token under "Authorization" section 
+7. Copy the Refresh Token and paste it in the plugin's configuration
 
 ## 🌡️ Supported devices
 
