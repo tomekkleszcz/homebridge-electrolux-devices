@@ -66,9 +66,18 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
             } catch (err) {
                 this.log.warn((err as Error).message);
             } finally {
+                if (
+                    this.config.pollingInterval &&
+                    this.config.pollingInterval < 120
+                ) {
+                    this.log.warn(
+                        'Polling interval is less than 120 seconds. This could lead to issues with the Electrolux API rate limiting. Please consider increasing the polling interval.'
+                    );
+                }
+
                 this.pollingInterval = setInterval(
                     this.pollStatus.bind(this),
-                    (this.config.pollingInterval || 10) * 1000
+                    (this.config.pollingInterval || 120) * 1000
                 );
             }
         });

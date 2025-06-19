@@ -21,7 +21,7 @@
                 "title": "Polling interval",
                 "type": "number",
                 "required": false,
-                "default": "30"
+                "default": "120"
             },
             "carbonDioxideSensorAlarmValue": {
                 "title": "Carbon dioxide sensor alarm value",
