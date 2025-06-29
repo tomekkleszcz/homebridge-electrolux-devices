@@ -6,6 +6,7 @@ import { ElectroluxAccessoryController } from '../../controller';
 import { isParticleFilter } from '../../../util/filters';
 import { ApplianceItem } from '../../../definitions/appliances';
 import { ApplianceState } from '../../../definitions/applianceState';
+import { formatBrand } from '../../../util/brand';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
@@ -24,7 +25,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
             .getService(this.platform.Service.AccessoryInformation)!
             .setCharacteristic(
                 this.platform.Characteristic.Manufacturer,
-                'Electrolux'
+                formatBrand(this.appliance.applianceInfo.brand)
             )
             .setCharacteristic(
                 this.platform.Characteristic.Model,
