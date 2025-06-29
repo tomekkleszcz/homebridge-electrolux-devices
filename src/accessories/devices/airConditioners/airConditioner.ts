@@ -1,22 +1,18 @@
-import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
-import { ElectroluxDevicesPlatform } from '../../platform';
-import { Appliance } from '../../definitions/appliance';
-import _ from 'lodash';
-import { ElectroluxAccessoryController } from '../controller';
-import { ApplianceItem } from '../../definitions/appliances';
+import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
+import { ElectroluxAccessoryController } from '../../controller';
+import { Appliance } from '../../../definitions/appliance';
+import { ApplianceItem } from '../../../definitions/appliances';
 import {
     ApplianceState,
     FanSpeedSetting,
     Mode
-} from '../../definitions/applianceState';
+} from '../../../definitions/applianceState';
+import { ElectroluxDevicesPlatform } from '../../../platform';
+import _ from 'lodash';
+import { formatBrand } from '../../../util/brand';
 
-/**
- * Platform Accessory
- * An instance of this class is created for each accessory your platform registers
- * Each accessory may expose multiple services of different service types.
- */
-export class Comfort600 extends ElectroluxAccessoryController {
-    private service: Service;
+export class AirConditioner extends ElectroluxAccessoryController {
+    service: Service;
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
@@ -31,7 +27,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
             .getService(this.platform.Service.AccessoryInformation)!
             .setCharacteristic(
                 this.platform.Characteristic.Manufacturer,
-                'Electrolux'
+                formatBrand(this.appliance.applianceInfo.brand)
             )
             .setCharacteristic(
                 this.platform.Characteristic.Model,
@@ -183,7 +179,12 @@ export class Comfort600 extends ElectroluxAccessoryController {
             .getCharacteristic(
                 this.platform.Characteristic.CoolingThresholdTemperature
             )
-            .setValue(this.state.properties.reported.mode === 'auto' ? this.appliance.capabilities.targetTemperatureC?.max ?? 32 : this.state.properties.reported.targetTemperatureC)
+            .setValue(
+                this.state.properties.reported.mode === 'auto'
+                    ? (this.appliance.capabilities.targetTemperatureC?.max ??
+                          32)
+                    : this.state.properties.reported.targetTemperatureC
+            )
             .setProps({
                 minValue:
                     this.appliance.capabilities.targetTemperatureC?.min ?? 16,
@@ -202,33 +203,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
                     this.setCoolingThresholdTemperature.bind(this)
                 )
             );
-
-        this.service
-            .getCharacteristic(
-                this.platform.Characteristic.HeatingThresholdTemperature
-            )
-            .setValue(this.state.properties.reported.targetTemperatureC)
-            .setProps({
-                minValue:
-                    this.appliance.capabilities.targetTemperatureC?.min ?? 16,
-                maxValue:
-                    this.appliance.capabilities.targetTemperatureC?.max ?? 32,
-                minStep:
-                    this.appliance.capabilities.targetTemperatureC?.step ?? 1
-            })
-            .onGet(
-                this.getCharacteristicValueGuard(
-                    this.getHeatingThresholdTemperature.bind(this)
-                )
-            )
-            .onSet(
-                this.setCharacteristicValueGuard(
-                    this.setHeatingThresholdTemperature.bind(this)
-                )
-            );
     }
 
-    private setTemperature = _.debounce(async (value: CharacteristicValue) => {
+    setTemperature = _.debounce(async (value: CharacteristicValue) => {
         this.sendCommand({
             targetTemperatureC: value
         });
@@ -488,29 +465,14 @@ export class Comfort600 extends ElectroluxAccessoryController {
         try {
             await this.setTemperature(value);
             this.state.properties.reported.targetTemperatureC = value as number;
-        } catch (err) {
+        } catch {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
             );
         }
     }
 
-    async getHeatingThresholdTemperature(): Promise<CharacteristicValue> {
-        return this.state.properties.reported.targetTemperatureC;
-    }
-
-    async setHeatingThresholdTemperature(value: CharacteristicValue) {
-        try {
-            await this.setTemperature(value);
-            this.state.properties.reported.targetTemperatureC = value as number;
-        } catch (err) {
-            throw new this.platform.api.hap.HapStatusError(
-                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-            );
-        }
-    }
-
-    update(state: ApplianceState) {
+    async update(state: ApplianceState) {
         this.state = state;
 
         let currentState: CharacteristicValue, targetState: CharacteristicValue;
@@ -592,26 +554,5 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 ? this.platform.Characteristic.SwingMode.SWING_ENABLED
                 : this.platform.Characteristic.SwingMode.SWING_DISABLED
         );
-
-        if (this.state.properties.reported.mode === 'auto') {
-            this.service.updateCharacteristic(
-                this.platform.Characteristic.CoolingThresholdTemperature,
-                this.appliance.capabilities.targetTemperatureC?.max ?? 32
-            );
-            this.service.updateCharacteristic(
-                this.platform.Characteristic.HeatingThresholdTemperature,
-                this.state.properties.reported.targetTemperatureC
-            );
-        } else {
-            this.service.updateCharacteristic(
-                this.platform.Characteristic.CoolingThresholdTemperature,
-                this.state.properties.reported.targetTemperatureC
-            );
-            this.service.updateCharacteristic(
-                this.platform.Characteristic.HeatingThresholdTemperature,
-                this.state.properties.reported.targetTemperatureC
-            );
-        }
     }
 }
-

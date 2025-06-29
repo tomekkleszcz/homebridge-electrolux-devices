@@ -1,4 +1,8 @@
-import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
+import type {
+    CharacteristicValue,
+    PlatformAccessory,
+    Service
+} from 'homebridge';
 import { ElectroluxDevicesPlatform } from '../../../platform';
 import { AirPurifier } from './airPurifier';
 import { ElectroluxAccessoryController } from '../../controller';

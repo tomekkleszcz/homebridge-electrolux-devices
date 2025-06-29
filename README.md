@@ -10,7 +10,7 @@
 ![NPM Version](https://img.shields.io/npm/v/homebridge-electrolux-devices)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/tomekkleszcz/homebridge-electrolux-devices/tests.yml?label=tests)
 
-This is a plugin for connecting Electrolux devices which are controlled by the [Electrolux](https://apps.apple.com/pl/app/electrolux/id1595816832) app to Homekit.
+This is a plugin for connecting Electrolux/Frigidaire devices which are controlled by the [Electrolux](https://apps.apple.com/pl/app/electrolux/id1595816832) or [Frigidaire](https://apps.apple.com/us/app/frigidaire/id1599494923) app to Homekit.
 
 ## 🧰 Installation
 
@@ -25,11 +25,17 @@ This is a plugin for connecting Electrolux devices which are controlled by the [
 
 ## 🌡️ Supported devices
 
-- Comfort 600 air conditioner
-- Well A5/AX 5 air purifier
-- Well A7 air purifier
-- Pure A9/AX 9 air purifier
-- UltimateHome 500 air purifier
+### ❄️ Air conditioners
+
+- Electrolux Comfort 600
+- Frigidaire Gallery Inverter Window Room
+
+### 🌬️ Air purifiers
+
+- Electrolux Well A5/AX 5
+- Electrolux Well A7
+- Electrolux Pure A9/AX 9
+- Electrolux UltimateHome 500
 
 If your device is not on the list, please create the issue. I'll be more than happy to implement the support for your device. 😄
 
