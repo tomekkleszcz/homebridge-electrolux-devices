@@ -183,7 +183,12 @@ export class Comfort600 extends ElectroluxAccessoryController {
             .getCharacteristic(
                 this.platform.Characteristic.CoolingThresholdTemperature
             )
-            .setValue(this.state.properties.reported.mode === 'auto' ? this.appliance.capabilities.targetTemperatureC?.max ?? 32 : this.state.properties.reported.targetTemperatureC)
+            .setValue(
+                this.state.properties.reported.mode === 'auto'
+                    ? (this.appliance.capabilities.targetTemperatureC?.max ??
+                          32)
+                    : this.state.properties.reported.targetTemperatureC
+            )
             .setProps({
                 minValue:
                     this.appliance.capabilities.targetTemperatureC?.min ?? 16,
@@ -488,7 +493,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
         try {
             await this.setTemperature(value);
             this.state.properties.reported.targetTemperatureC = value as number;
-        } catch (err) {
+        } catch {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
             );
@@ -503,7 +508,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
         try {
             await this.setTemperature(value);
             this.state.properties.reported.targetTemperatureC = value as number;
-        } catch (err) {
+        } catch {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
             );
@@ -614,4 +619,3 @@ export class Comfort600 extends ElectroluxAccessoryController {
         }
     }
 }
-
