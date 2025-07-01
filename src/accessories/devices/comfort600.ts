@@ -307,10 +307,30 @@ export class Comfort600 extends ElectroluxAccessoryController {
             }
 
             this.fanService
+                .getCharacteristic(
+                    this.platform.Characteristic.LockPhysicalControls
+                )
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getLockPhysicalControls.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setLockPhysicalControls.bind(this)
+                    )
+                );
+
+            this.fanService
                 .getCharacteristic(this.platform.Characteristic.SwingMode)
                 .onGet(
                     this.getCharacteristicValueGuard(
                         this.getSwingMode.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setSwingMode.bind(this)
                     )
                 );
         }
@@ -348,6 +368,49 @@ export class Comfort600 extends ElectroluxAccessoryController {
                         this.setDehumidifierActive.bind(this)
                     )
                 );
+
+            this.dehumidifierService
+                .getCharacteristic(
+                    this.platform.Characteristic
+                        .CurrentHumidifierDehumidifierState
+                )
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getCurrentHumidifierDehumidifierState.bind(this)
+                    )
+                );
+
+            this.dehumidifierService
+                .getCharacteristic(
+                    this.platform.Characteristic
+                        .TargetHumidifierDehumidifierState
+                )
+                .setProps({
+                    validValues: [
+                        this.platform.Characteristic
+                            .TargetHumidifierDehumidifierState.DEHUMIDIFIER
+                    ]
+                })
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getTargetHumidifierDehumidifierState.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setTargetHumidifierDehumidifierState.bind(this)
+                    )
+                );
+
+            this.dehumidifierService
+                .getCharacteristic(
+                    this.platform.Characteristic.CurrentRelativeHumidity
+                )
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getCurrentRelativeHumidity.bind(this)
+                    )
+                );
         }
     }
 
@@ -369,8 +432,6 @@ export class Comfort600 extends ElectroluxAccessoryController {
             this.state.properties.reported.mode !== 'fanOnly' &&
             this.state.properties.reported.mode !== 'dry';
 
-        console.log(isAirConditionerModeRunning);
-
         return isAirConditionerModeRunning
             ? this.platform.Characteristic.Active.ACTIVE
             : this.platform.Characteristic.Active.INACTIVE;
@@ -382,8 +443,6 @@ export class Comfort600 extends ElectroluxAccessoryController {
             this.state.properties.reported.mode !== 'fanOnly' &&
             this.state.properties.reported.mode !== 'dry';
 
-        console.log('ac', isAirConditionerModeRunning, value);
-
         if (
             (isAirConditionerModeRunning &&
                 value === this.platform.Characteristic.Active.ACTIVE) ||
@@ -393,7 +452,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
             return;
         }
 
-        this.sendCommand({
+        await this.sendCommand({
             executeCommand:
                 value === this.platform.Characteristic.Active.ACTIVE
                     ? 'ON'
@@ -411,14 +470,54 @@ export class Comfort600 extends ElectroluxAccessoryController {
         this.state.properties.reported.mode =
             this.accessory.context.lastAirConditionerMode;
 
-        if (this.fanService) {
-            console.log('TURN OFF FAN');
+        let state;
+        switch (this.accessory.context.lastAirConditionerMode) {
+            case 'cool':
+                state =
+                    this.platform.Characteristic.CurrentHeaterCoolerState
+                        .COOLING;
+                break;
+            case 'heat':
+                state =
+                    this.platform.Characteristic.CurrentHeaterCoolerState
+                        .HEATING;
+                break;
+            case 'auto':
+                if (this.isHeatModeSupported) {
+                    state =
+                        this.state.properties.reported.ambientTemperatureC >
+                        this.state.properties.reported.targetTemperatureC
+                            ? this.platform.Characteristic
+                                  .CurrentHeaterCoolerState.COOLING
+                            : this.platform.Characteristic
+                                  .CurrentHeaterCoolerState.IDLE;
+                }
 
-            this.fanService.updateCharacteristic(
-                this.platform.Characteristic.Active,
-                this.platform.Characteristic.Active.INACTIVE
-            );
+                state =
+                    this.state.properties.reported.ambientTemperatureC >
+                    this.state.properties.reported.targetTemperatureC
+                        ? this.platform.Characteristic.CurrentHeaterCoolerState
+                              .COOLING
+                        : this.platform.Characteristic.CurrentHeaterCoolerState
+                              .HEATING;
+                break;
+            default:
+                state =
+                    this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
         }
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.CurrentHeaterCoolerState,
+            state
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+        this.dehumidifierService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
     }
 
     async getCurrentHeaterCoolerState(): Promise<CharacteristicValue> {
@@ -571,6 +670,19 @@ export class Comfort600 extends ElectroluxAccessoryController {
             value ===
             this.platform.Characteristic.LockPhysicalControls
                 .CONTROL_LOCK_ENABLED;
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.LockPhysicalControls,
+            value
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.LockPhysicalControls,
+            value
+        );
+        this.dehumidifierService?.updateCharacteristic(
+            this.platform.Characteristic.LockPhysicalControls,
+            value
+        );
     }
 
     async getName(): Promise<CharacteristicValue> {
@@ -622,13 +734,22 @@ export class Comfort600 extends ElectroluxAccessoryController {
         }
 
         try {
-            await this.setFanSpeed(fanSpeedSetting);
+            await this.setFanSpeed(fanSpeedSetting.toUpperCase());
             this.state.properties.reported.fanSpeedSetting = fanSpeedSetting;
         } catch {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
             );
         }
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.RotationSpeed,
+            numberValue
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.RotationSpeed,
+            numberValue
+        );
     }
 
     async getSwingMode(): Promise<CharacteristicValue> {
@@ -649,6 +770,15 @@ export class Comfort600 extends ElectroluxAccessoryController {
             value === this.platform.Characteristic.SwingMode.SWING_ENABLED
                 ? 'on'
                 : 'off';
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.SwingMode,
+            value
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.SwingMode,
+            value
+        );
     }
 
     async getCoolingThresholdTemperature(): Promise<CharacteristicValue> {
@@ -788,6 +918,53 @@ export class Comfort600 extends ElectroluxAccessoryController {
             this.platform.Characteristic.Active,
             this.platform.Characteristic.Active.INACTIVE
         );
+    }
+
+    async getCurrentHumidifierDehumidifierState(): Promise<CharacteristicValue> {
+        const isDryModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode === 'dry';
+
+        return isDryModeRunning
+            ? this.platform.Characteristic.CurrentHumidifierDehumidifierState
+                  .DEHUMIDIFYING
+            : this.platform.Characteristic.CurrentHumidifierDehumidifierState
+                  .INACTIVE;
+    }
+
+    async getTargetHumidifierDehumidifierState(): Promise<CharacteristicValue> {
+        return this.platform.Characteristic.TargetHumidifierDehumidifierState
+            .DEHUMIDIFIER;
+    }
+
+    async setTargetHumidifierDehumidifierState(value: CharacteristicValue) {
+        await this.sendCommand({
+            mode:
+                value ===
+                this.platform.Characteristic.TargetHumidifierDehumidifierState
+                    .DEHUMIDIFIER
+                    ? 'DRY'
+                    : undefined
+        });
+
+        this.state.properties.reported.applianceState = value = this.platform
+            .Characteristic.Active.ACTIVE
+            ? 'running'
+            : 'off';
+        this.state.properties.reported.mode = 'dry';
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+    }
+
+    async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
+        return 0; // Not supported by Comfort 600
     }
 
     update(state: ApplianceState) {
@@ -940,6 +1117,26 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 isDryModeRunning
                     ? this.platform.Characteristic.Active.ACTIVE
                     : this.platform.Characteristic.Active.INACTIVE
+            );
+
+            this.dehumidifierService.updateCharacteristic(
+                this.platform.Characteristic.CurrentHumidifierDehumidifierState,
+                isDryModeRunning
+                    ? this.platform.Characteristic
+                          .CurrentHumidifierDehumidifierState.DEHUMIDIFYING
+                    : this.platform.Characteristic
+                          .CurrentHumidifierDehumidifierState.INACTIVE
+            );
+
+            this.dehumidifierService.updateCharacteristic(
+                this.platform.Characteristic.TargetHumidifierDehumidifierState,
+                this.platform.Characteristic.TargetHumidifierDehumidifierState
+                    .DEHUMIDIFIER
+            );
+
+            this.dehumidifierService.updateCharacteristic(
+                this.platform.Characteristic.CurrentRelativeHumidity,
+                0
             );
         }
     }
