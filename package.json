@@ -1,7 +1,7 @@
 {
     "displayName": "Homebridge Electrolux Devices",
     "name": "homebridge-electrolux-devices",
-    "version": "1.1.0",
+    "version": "1.2.0-comfort-600-modes-beta.1",
     "description": "Homebridge plugin for Electrolux devices",
     "license": "Apache-2.0",
     "repository": {

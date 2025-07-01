@@ -17,6 +17,14 @@ import {
  */
 export class Comfort600 extends ElectroluxAccessoryController {
     private service: Service;
+    private fanService: Service | undefined;
+    private dehumidifierService: Service | undefined;
+
+    private isAutoModeSupported: boolean;
+    private isCoolModeSupported: boolean;
+    private isHeatModeSupported: boolean;
+    private isFanModeSupported: boolean;
+    private isDryModeSupported: boolean;
 
     constructor(
         readonly _platform: ElectroluxDevicesPlatform,
@@ -77,12 +85,21 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 )
             );
 
-        const targetHeaterCoolerStateValidValues = [
-            this.appliance.capabilities.mode!.values['AUTO'] !== undefined &&
-                this.platform.Characteristic.TargetHeaterCoolerState.AUTO,
-            this.appliance.capabilities.mode!.values['COOL'] !== undefined &&
-                this.platform.Characteristic.TargetHeaterCoolerState.COOL,
+        this.isAutoModeSupported =
+            this.appliance.capabilities.mode!.values['AUTO'] !== undefined;
+        this.isCoolModeSupported =
+            this.appliance.capabilities.mode!.values['COOL'] !== undefined;
+        this.isHeatModeSupported =
             this.appliance.capabilities.mode!.values['HEAT'] !== undefined &&
+            /* Bug in the Electrolux API, the heat mode is not supported on AZULTM10 */
+            this.appliance.applianceInfo.variant !== 'AZULTM10';
+
+        const targetHeaterCoolerStateValidValues = [
+            this.isAutoModeSupported &&
+                this.platform.Characteristic.TargetHeaterCoolerState.AUTO,
+            this.isCoolModeSupported &&
+                this.platform.Characteristic.TargetHeaterCoolerState.COOL,
+            this.isHeatModeSupported &&
                 this.platform.Characteristic.TargetHeaterCoolerState.HEAT
         ].filter((value) => value !== false) as number[];
 
@@ -136,8 +153,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 .getCharacteristic(this.platform.Characteristic.RotationSpeed)
                 .setProps({
                     minValue: 0,
-                    maxValue: this.appliance.capabilities.fanSpeedState.values
-                        .length as number,
+                    maxValue: 100,
                     minStep: 1
                 })
                 .onGet(
@@ -183,7 +199,12 @@ export class Comfort600 extends ElectroluxAccessoryController {
             .getCharacteristic(
                 this.platform.Characteristic.CoolingThresholdTemperature
             )
-            .setValue(this.state.properties.reported.mode === 'auto' ? this.appliance.capabilities.targetTemperatureC?.max ?? 32 : this.state.properties.reported.targetTemperatureC)
+            .setValue(
+                this.state.properties.reported.mode === 'auto'
+                    ? (this.appliance.capabilities.targetTemperatureC?.max ??
+                          32)
+                    : this.state.properties.reported.targetTemperatureC
+            )
             .setProps({
                 minValue:
                     this.appliance.capabilities.targetTemperatureC?.min ?? 16,
@@ -226,6 +247,171 @@ export class Comfort600 extends ElectroluxAccessoryController {
                     this.setHeatingThresholdTemperature.bind(this)
                 )
             );
+
+        this.isFanModeSupported =
+            this.appliance.capabilities.mode!.values['FANONLY'] !== undefined;
+
+        if (this.isFanModeSupported) {
+            this.platform.log.debug(
+                `[${this._accessory.displayName}] Fan mode is supported`
+            );
+
+            this.fanService =
+                this.accessory.getService(this.platform.Service.Fanv2) ||
+                this.accessory.addService(this.platform.Service.Fanv2);
+
+            this.fanService.setCharacteristic(
+                this.platform.Characteristic.Name,
+                this.item.applianceName
+            );
+
+            this.fanService
+                .getCharacteristic(this.platform.Characteristic.Active)
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getFanActive.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setFanActive.bind(this)
+                    )
+                );
+
+            if (this.appliance.capabilities.fanSpeedState) {
+                this.fanService
+                    .getCharacteristic(
+                        this.platform.Characteristic.RotationSpeed
+                    )
+                    .setProps({
+                        minValue: 0,
+                        maxValue: 100,
+                        minStep: 1
+                    })
+                    .onGet(
+                        this.getCharacteristicValueGuard(
+                            this.getRotationSpeed.bind(this)
+                        )
+                    )
+                    .onSet(
+                        this.setCharacteristicValueGuard(
+                            this.setRotationSpeed.bind(this)
+                        )
+                    );
+            } else {
+                this.fanService.removeCharacteristic(
+                    this.fanService.getCharacteristic(
+                        this.platform.Characteristic.RotationSpeed
+                    )
+                );
+            }
+
+            this.fanService
+                .getCharacteristic(
+                    this.platform.Characteristic.LockPhysicalControls
+                )
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getLockPhysicalControls.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setLockPhysicalControls.bind(this)
+                    )
+                );
+
+            this.fanService
+                .getCharacteristic(this.platform.Characteristic.SwingMode)
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getSwingMode.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setSwingMode.bind(this)
+                    )
+                );
+        }
+
+        this.isDryModeSupported =
+            this.appliance.capabilities.mode!.values['DRY'] !== undefined;
+
+        if (this.isDryModeSupported) {
+            this.platform.log.debug(
+                `[${this._accessory.displayName}] Dry mode is supported`
+            );
+
+            this.dehumidifierService =
+                this.accessory.getService(
+                    this.platform.Service.HumidifierDehumidifier
+                ) ||
+                this.accessory.addService(
+                    this.platform.Service.HumidifierDehumidifier
+                );
+
+            this.dehumidifierService.setCharacteristic(
+                this.platform.Characteristic.Name,
+                this.item.applianceName
+            );
+
+            this.dehumidifierService
+                .getCharacteristic(this.platform.Characteristic.Active)
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getDehumidifierActive.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setDehumidifierActive.bind(this)
+                    )
+                );
+
+            this.dehumidifierService
+                .getCharacteristic(
+                    this.platform.Characteristic
+                        .CurrentHumidifierDehumidifierState
+                )
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getCurrentHumidifierDehumidifierState.bind(this)
+                    )
+                );
+
+            this.dehumidifierService
+                .getCharacteristic(
+                    this.platform.Characteristic
+                        .TargetHumidifierDehumidifierState
+                )
+                .setProps({
+                    validValues: [
+                        this.platform.Characteristic
+                            .TargetHumidifierDehumidifierState.DEHUMIDIFIER
+                    ]
+                })
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getTargetHumidifierDehumidifierState.bind(this)
+                    )
+                )
+                .onSet(
+                    this.setCharacteristicValueGuard(
+                        this.setTargetHumidifierDehumidifierState.bind(this)
+                    )
+                );
+
+            this.dehumidifierService
+                .getCharacteristic(
+                    this.platform.Characteristic.CurrentRelativeHumidity
+                )
+                .onGet(
+                    this.getCharacteristicValueGuard(
+                        this.getCurrentRelativeHumidity.bind(this)
+                    )
+                );
+        }
     }
 
     private setTemperature = _.debounce(async (value: CharacteristicValue) => {
@@ -234,33 +420,104 @@ export class Comfort600 extends ElectroluxAccessoryController {
         });
     }, 1000);
 
+    private setFanSpeed = _.debounce(async (value: CharacteristicValue) => {
+        this.sendCommand({
+            fanSpeedSetting: value
+        });
+    }, 1000);
+
     async getActive(): Promise<CharacteristicValue> {
-        return this.state.properties.reported.applianceState === 'running'
+        const isAirConditionerModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode !== 'fanOnly' &&
+            this.state.properties.reported.mode !== 'dry';
+
+        return isAirConditionerModeRunning
             ? this.platform.Characteristic.Active.ACTIVE
             : this.platform.Characteristic.Active.INACTIVE;
     }
 
     async setActive(value: CharacteristicValue) {
+        const isAirConditionerModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode !== 'fanOnly' &&
+            this.state.properties.reported.mode !== 'dry';
+
         if (
-            (this.state.properties.reported.applianceState === 'running' &&
+            (isAirConditionerModeRunning &&
                 value === this.platform.Characteristic.Active.ACTIVE) ||
-            (this.state.properties.reported.applianceState === 'off' &&
+            (!isAirConditionerModeRunning &&
                 value === this.platform.Characteristic.Active.INACTIVE)
         ) {
             return;
         }
 
-        this.sendCommand({
+        await this.sendCommand({
             executeCommand:
                 value === this.platform.Characteristic.Active.ACTIVE
                     ? 'ON'
-                    : 'OFF'
+                    : 'OFF',
+            mode:
+                value === this.platform.Characteristic.Active.ACTIVE
+                    ? this.accessory.context.lastAirConditionerMode
+                    : undefined
         });
 
         this.state.properties.reported.applianceState =
             value === this.platform.Characteristic.Active.ACTIVE
                 ? 'running'
                 : 'off';
+        this.state.properties.reported.mode =
+            this.accessory.context.lastAirConditionerMode;
+
+        let state;
+        switch (this.accessory.context.lastAirConditionerMode) {
+            case 'cool':
+                state =
+                    this.platform.Characteristic.CurrentHeaterCoolerState
+                        .COOLING;
+                break;
+            case 'heat':
+                state =
+                    this.platform.Characteristic.CurrentHeaterCoolerState
+                        .HEATING;
+                break;
+            case 'auto':
+                if (this.isHeatModeSupported) {
+                    state =
+                        this.state.properties.reported.ambientTemperatureC >
+                        this.state.properties.reported.targetTemperatureC
+                            ? this.platform.Characteristic
+                                  .CurrentHeaterCoolerState.COOLING
+                            : this.platform.Characteristic
+                                  .CurrentHeaterCoolerState.IDLE;
+                }
+
+                state =
+                    this.state.properties.reported.ambientTemperatureC >
+                    this.state.properties.reported.targetTemperatureC
+                        ? this.platform.Characteristic.CurrentHeaterCoolerState
+                              .COOLING
+                        : this.platform.Characteristic.CurrentHeaterCoolerState
+                              .HEATING;
+                break;
+            default:
+                state =
+                    this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+        }
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.CurrentHeaterCoolerState,
+            state
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+        this.dehumidifierService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
     }
 
     async getCurrentHeaterCoolerState(): Promise<CharacteristicValue> {
@@ -272,10 +529,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 return this.platform.Characteristic.CurrentHeaterCoolerState
                     .HEATING;
             case 'auto':
-                if (
-                    this.appliance.capabilities.mode?.values['HEAT'] ===
-                    undefined
-                ) {
+                if (this.isHeatModeSupported) {
                     return this.state.properties.reported.ambientTemperatureC >
                         this.state.properties.reported.targetTemperatureC
                         ? this.platform.Characteristic.CurrentHeaterCoolerState
@@ -290,6 +544,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
                           .COOLING
                     : this.platform.Characteristic.CurrentHeaterCoolerState
                           .HEATING;
+            default:
+                return this.platform.Characteristic.CurrentHeaterCoolerState
+                    .IDLE;
         }
     }
 
@@ -304,6 +561,9 @@ export class Comfort600 extends ElectroluxAccessoryController {
             case 'auto':
                 return this.platform.Characteristic.TargetHeaterCoolerState
                     .AUTO;
+            default:
+                return this.platform.Characteristic.CurrentHeaterCoolerState
+                    .IDLE;
         }
     }
 
@@ -343,6 +603,8 @@ export class Comfort600 extends ElectroluxAccessoryController {
         await this.sendCommand({
             mode
         });
+
+        this.accessory.context.lastAirConditionerMode = mode;
 
         if (currentState) {
             this.service.updateCharacteristic(
@@ -408,6 +670,19 @@ export class Comfort600 extends ElectroluxAccessoryController {
             value ===
             this.platform.Characteristic.LockPhysicalControls
                 .CONTROL_LOCK_ENABLED;
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.LockPhysicalControls,
+            value
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.LockPhysicalControls,
+            value
+        );
+        this.dehumidifierService?.updateCharacteristic(
+            this.platform.Characteristic.LockPhysicalControls,
+            value
+        );
     }
 
     async getName(): Promise<CharacteristicValue> {
@@ -415,39 +690,66 @@ export class Comfort600 extends ElectroluxAccessoryController {
     }
 
     async getRotationSpeed(): Promise<CharacteristicValue> {
+        const isFanModeRunning =
+            this.state.properties.reported.mode === 'fanOnly';
+
         switch (this.state.properties.reported.fanSpeedSetting) {
-            case 'auto':
-                return 0;
             case 'low':
-                return 1;
+                return isFanModeRunning ? 33.33 : 25;
             case 'middle':
-                return 2;
+                return isFanModeRunning ? 66.66 : 50;
             case 'high':
-                return 3;
+                return isFanModeRunning ? 100 : 75;
+            case 'auto':
+                return 100;
         }
     }
 
     async setRotationSpeed(value: CharacteristicValue) {
         const numberValue = value as number;
 
+        const isFanModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode === 'fanOnly';
+
         let fanSpeedSetting: FanSpeedSetting = 'auto';
-        switch (numberValue) {
-            case 1:
+        if (isFanModeRunning) {
+            if (numberValue <= 33.33) {
                 fanSpeedSetting = 'low';
-                break;
-            case 2:
+            } else if (numberValue <= 66.66) {
                 fanSpeedSetting = 'middle';
-                break;
-            case 3:
+            } else {
                 fanSpeedSetting = 'high';
-                break;
+            }
+        } else {
+            if (numberValue <= 25) {
+                fanSpeedSetting = 'low';
+            } else if (numberValue <= 50) {
+                fanSpeedSetting = 'middle';
+            } else if (numberValue <= 75) {
+                fanSpeedSetting = 'high';
+            } else {
+                fanSpeedSetting = 'auto';
+            }
         }
 
-        this.state.properties.reported.fanSpeedSetting = fanSpeedSetting;
+        try {
+            await this.setFanSpeed(fanSpeedSetting.toUpperCase());
+            this.state.properties.reported.fanSpeedSetting = fanSpeedSetting;
+        } catch {
+            throw new this.platform.api.hap.HapStatusError(
+                this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
+            );
+        }
 
-        await this.sendCommand({
-            fanSpeedSetting: fanSpeedSetting.toUpperCase()
-        });
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.RotationSpeed,
+            numberValue
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.RotationSpeed,
+            numberValue
+        );
     }
 
     async getSwingMode(): Promise<CharacteristicValue> {
@@ -468,6 +770,15 @@ export class Comfort600 extends ElectroluxAccessoryController {
             value === this.platform.Characteristic.SwingMode.SWING_ENABLED
                 ? 'on'
                 : 'off';
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.SwingMode,
+            value
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.SwingMode,
+            value
+        );
     }
 
     async getCoolingThresholdTemperature(): Promise<CharacteristicValue> {
@@ -488,7 +799,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
         try {
             await this.setTemperature(value);
             this.state.properties.reported.targetTemperatureC = value as number;
-        } catch (err) {
+        } catch {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
             );
@@ -503,11 +814,157 @@ export class Comfort600 extends ElectroluxAccessoryController {
         try {
             await this.setTemperature(value);
             this.state.properties.reported.targetTemperatureC = value as number;
-        } catch (err) {
+        } catch {
             throw new this.platform.api.hap.HapStatusError(
                 this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
             );
         }
+    }
+
+    async getFanActive(): Promise<CharacteristicValue> {
+        const isFanModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode === 'fanOnly';
+
+        return isFanModeRunning
+            ? this.platform.Characteristic.Active.ACTIVE
+            : this.platform.Characteristic.Active.INACTIVE;
+    }
+
+    async setFanActive(value: CharacteristicValue) {
+        const isFanModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode === 'fanOnly';
+
+        if (
+            (isFanModeRunning &&
+                value === this.platform.Characteristic.Active.ACTIVE) ||
+            (!isFanModeRunning &&
+                value === this.platform.Characteristic.Active.INACTIVE)
+        ) {
+            return;
+        }
+
+        this.sendCommand({
+            executeCommand:
+                value === this.platform.Characteristic.Active.ACTIVE
+                    ? 'ON'
+                    : 'OFF',
+            mode:
+                value === this.platform.Characteristic.Active.ACTIVE
+                    ? 'FANONLY'
+                    : undefined
+        });
+
+        this.state.properties.reported.applianceState =
+            value === this.platform.Characteristic.Active.ACTIVE
+                ? 'running'
+                : 'off';
+        this.state.properties.reported.mode = 'fanOnly';
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+        this.dehumidifierService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+    }
+
+    async getDehumidifierActive(): Promise<CharacteristicValue> {
+        return this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode === 'dry'
+            ? this.platform.Characteristic.Active.ACTIVE
+            : this.platform.Characteristic.Active.INACTIVE;
+    }
+
+    async setDehumidifierActive(value: CharacteristicValue) {
+        const isDryModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode === 'dry';
+
+        if (
+            (isDryModeRunning &&
+                value === this.platform.Characteristic.Active.ACTIVE) ||
+            (!isDryModeRunning &&
+                value === this.platform.Characteristic.Active.INACTIVE)
+        ) {
+            return;
+        }
+
+        this.sendCommand({
+            executeCommand:
+                value === this.platform.Characteristic.Active.ACTIVE
+                    ? 'ON'
+                    : 'OFF',
+            mode:
+                value === this.platform.Characteristic.Active.ACTIVE
+                    ? 'DRY'
+                    : undefined
+        });
+
+        this.state.properties.reported.applianceState = value = this.platform
+            .Characteristic.Active.ACTIVE
+            ? 'running'
+            : 'off';
+        this.state.properties.reported.mode = 'dry';
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+    }
+
+    async getCurrentHumidifierDehumidifierState(): Promise<CharacteristicValue> {
+        const isDryModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode === 'dry';
+
+        return isDryModeRunning
+            ? this.platform.Characteristic.CurrentHumidifierDehumidifierState
+                  .DEHUMIDIFYING
+            : this.platform.Characteristic.CurrentHumidifierDehumidifierState
+                  .INACTIVE;
+    }
+
+    async getTargetHumidifierDehumidifierState(): Promise<CharacteristicValue> {
+        return this.platform.Characteristic.TargetHumidifierDehumidifierState
+            .DEHUMIDIFIER;
+    }
+
+    async setTargetHumidifierDehumidifierState(value: CharacteristicValue) {
+        await this.sendCommand({
+            mode:
+                value ===
+                this.platform.Characteristic.TargetHumidifierDehumidifierState
+                    .DEHUMIDIFIER
+                    ? 'DRY'
+                    : undefined
+        });
+
+        this.state.properties.reported.applianceState = value = this.platform
+            .Characteristic.Active.ACTIVE
+            ? 'running'
+            : 'off';
+        this.state.properties.reported.mode = 'dry';
+
+        this.service.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+        this.fanService?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            this.platform.Characteristic.Active.INACTIVE
+        );
+    }
+
+    async getCurrentRelativeHumidity(): Promise<CharacteristicValue> {
+        return 0; // Not supported by Comfort 600
     }
 
     update(state: ApplianceState) {
@@ -529,7 +986,7 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 targetState =
                     this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
                 break;
-            default:
+            case 'auto':
                 currentState =
                     this.state.properties.reported.ambientTemperatureC >
                     this.state.properties.reported.targetTemperatureC
@@ -537,6 +994,12 @@ export class Comfort600 extends ElectroluxAccessoryController {
                               .COOLING
                         : this.platform.Characteristic.CurrentHeaterCoolerState
                               .HEATING;
+                targetState =
+                    this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+                break;
+            default:
+                currentState =
+                    this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
                 targetState =
                     this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
                 break;
@@ -556,9 +1019,15 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 rotationSpeed = 3;
                 break;
         }
+
+        const isAirConditionerModeRunning =
+            this.state.properties.reported.applianceState === 'running' &&
+            this.state.properties.reported.mode !== 'fanOnly' &&
+            this.state.properties.reported.mode !== 'dry';
+
         this.service.updateCharacteristic(
             this.platform.Characteristic.Active,
-            this.state.properties.reported.applianceState === 'running'
+            isAirConditionerModeRunning
                 ? this.platform.Characteristic.Active.ACTIVE
                 : this.platform.Characteristic.Active.INACTIVE
         );
@@ -612,6 +1081,63 @@ export class Comfort600 extends ElectroluxAccessoryController {
                 this.state.properties.reported.targetTemperatureC
             );
         }
+
+        if (this.fanService) {
+            const isFanModeRunning =
+                this.state.properties.reported.applianceState === 'running' &&
+                this.state.properties.reported.mode === 'fanOnly';
+
+            this.fanService.updateCharacteristic(
+                this.platform.Characteristic.Active,
+                isFanModeRunning
+                    ? this.platform.Characteristic.Active.ACTIVE
+                    : this.platform.Characteristic.Active.INACTIVE
+            );
+
+            this.fanService.updateCharacteristic(
+                this.platform.Characteristic.RotationSpeed,
+                rotationSpeed
+            );
+
+            this.fanService.updateCharacteristic(
+                this.platform.Characteristic.SwingMode,
+                this.state.properties.reported.verticalSwing === 'on'
+                    ? this.platform.Characteristic.SwingMode.SWING_ENABLED
+                    : this.platform.Characteristic.SwingMode.SWING_DISABLED
+            );
+        }
+
+        if (this.dehumidifierService) {
+            const isDryModeRunning =
+                this.state.properties.reported.applianceState === 'running' &&
+                this.state.properties.reported.mode === 'dry';
+
+            this.dehumidifierService.updateCharacteristic(
+                this.platform.Characteristic.Active,
+                isDryModeRunning
+                    ? this.platform.Characteristic.Active.ACTIVE
+                    : this.platform.Characteristic.Active.INACTIVE
+            );
+
+            this.dehumidifierService.updateCharacteristic(
+                this.platform.Characteristic.CurrentHumidifierDehumidifierState,
+                isDryModeRunning
+                    ? this.platform.Characteristic
+                          .CurrentHumidifierDehumidifierState.DEHUMIDIFYING
+                    : this.platform.Characteristic
+                          .CurrentHumidifierDehumidifierState.INACTIVE
+            );
+
+            this.dehumidifierService.updateCharacteristic(
+                this.platform.Characteristic.TargetHumidifierDehumidifierState,
+                this.platform.Characteristic.TargetHumidifierDehumidifierState
+                    .DEHUMIDIFIER
+            );
+
+            this.dehumidifierService.updateCharacteristic(
+                this.platform.Characteristic.CurrentRelativeHumidity,
+                0
+            );
+        }
     }
 }
-

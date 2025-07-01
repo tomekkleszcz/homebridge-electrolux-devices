@@ -61,7 +61,7 @@ type Toggle = 'on' | 'off';
 
 type TemperatureRepresentation = 'celcius';
 
-export type Mode = 'auto' | 'cool' | 'heat';
+export type Mode = 'auto' | 'cool' | 'heat' | 'fanOnly' | 'dry';
 
 export type FanSpeedSetting = 'auto' | 'low' | 'middle' | 'high';
 

@@ -28,7 +28,7 @@ export abstract class ElectroluxAccessoryController {
     }
 
     async sendCommand(
-        body: Record<string, CharacteristicValue>
+        body: Record<string, CharacteristicValue | undefined>
     ): Promise<void> {
         try {
             if (
