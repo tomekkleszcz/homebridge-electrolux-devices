@@ -67,8 +67,8 @@ export type FanSpeedSetting = 'auto' | 'low' | 'middle' | 'high';
 
 type State = 'good';
 
-/* Well A7 */
-type WorkMode = 'Manual' | 'Auto' | 'PowerOff';
+/* Air purifiers */
+export type WorkMode = 'Manual' | 'Auto' | 'Smart' | 'PowerOff';
 
 export enum FilterType {
     ParticleFilter1 = 48,

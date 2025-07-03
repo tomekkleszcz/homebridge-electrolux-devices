@@ -231,7 +231,7 @@ export class PureA9 extends AirPurifier {
 
         this.carbonDioxideSensorService.updateCharacteristic(
             this.platform.Characteristic.CarbonDioxideDetected,
-            this.state.properties.reported.CO2 >
+            this.state.properties.reported.ECO2 >
                 this.platform.config.carbonDioxideSensorAlarmValue
                 ? this.platform.Characteristic.CarbonDioxideDetected
                       .CO2_LEVELS_ABNORMAL
@@ -240,7 +240,7 @@ export class PureA9 extends AirPurifier {
         );
         this.carbonDioxideSensorService.updateCharacteristic(
             this.platform.Characteristic.CarbonDioxideLevel,
-            this.state.properties.reported.CO2
+            this.state.properties.reported.ECO2
         );
     }
 }
