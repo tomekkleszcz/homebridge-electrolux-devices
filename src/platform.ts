@@ -18,7 +18,11 @@ import path from 'path';
 import { API_URL } from './const/url';
 import { Appliance } from './definitions/appliance';
 import { Context } from './definitions/context';
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, {
+    AxiosError,
+    AxiosInstance,
+    InternalAxiosRequestConfig
+} from 'axios';
 import { ApplianceState } from './definitions/applianceState';
 
 /*
@@ -49,8 +53,6 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         public readonly config: PlatformConfig,
         public readonly api: API
     ) {
-        this.log.debug('Finished initializing platform:', this.config.name);
-
         // When this event is fired it means Homebridge has restored all cached accessories from disk.
         // Dynamic Platform plugins should only register new accessories after this event was fired,
         // in order to ensure they weren't added to homebridge already. This event can also be used
@@ -142,40 +144,62 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
         if (!exists) {
             this.refreshToken = this.config.refreshToken;
             if (!this.refreshToken) {
-                throw new Error('Refresh token not found');
-            }
-
-            await this.refreshAccessToken();
-            return;
-        }
-
-        /* Read the file and parse the JSON. */
-        const json = fs.readFileSync(storagePath, 'utf8');
-        const data = JSON.parse(json);
-
-        /* If the file version is not 1, get the refresh token from the config to get a new access token. */
-        if (data.version !== 1) {
-            this.refreshToken = this.config.refreshToken;
-            if (!this.refreshToken) {
                 throw new Error(
                     'Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.'
                 );
             }
 
-            await this.refreshAccessToken();
+            try {
+                await this.refreshAccessToken();
+            } catch (err) {
+                if (err instanceof AxiosError) {
+                    const axiosError = err as AxiosError;
+                    if (axiosError.response?.status === 401) {
+                        throw new Error(
+                            'Invalid refresh token! Please configure the plugin again using this guide: https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation'
+                        );
+                    }
+                }
+            }
             return;
         }
 
-        /* Set the auth data from the file. */
-        this.accessToken = data.accessToken;
-        this.refreshToken = data.refreshToken;
-        this.tokenExpirationDate = data.tokenExpirationDate;
+        /* Read the file and parse the JSON. */
+        const json = fs.readFileSync(storagePath, 'utf8');
 
-        if (
-            !this.tokenExpirationDate ||
-            Date.now() >= this.tokenExpirationDate
-        ) {
-            await this.refreshAccessToken();
+        try {
+            const data = JSON.parse(json);
+
+            /* If the file version is not 1, get the refresh token from the config to get a new access token. */
+            if (data.version !== 1) {
+                this.refreshToken = this.config.refreshToken;
+                if (!this.refreshToken) {
+                    throw new Error(
+                        'Please make sure the plugin is configured properly. Check https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation for more information.'
+                    );
+                }
+
+                await this.refreshAccessToken();
+                return;
+            }
+
+            /* Set the auth data from the file. */
+            this.accessToken = data.accessToken;
+            this.refreshToken = data.refreshToken;
+            this.tokenExpirationDate = data.tokenExpirationDate;
+
+            if (
+                !this.tokenExpirationDate ||
+                Date.now() >= this.tokenExpirationDate
+            ) {
+                await this.refreshAccessToken();
+            }
+        } catch {
+            fs.unlinkSync(storagePath);
+
+            throw new Error(
+                'Malformed auth data file! Please configure the plugin again using this guide: https://github.com/tomekkleszcz/homebridge-electrolux-devices?tab=readme-ov-file#-installation'
+            );
         }
     }
 
@@ -407,9 +431,11 @@ export class ElectroluxDevicesPlatform implements DynamicPlatformPlugin {
 
             this.log.debug('Appliances status polled!');
         } catch (err) {
-            const message =
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (err as any).response?.data?.message ?? (err as Error).message;
+            let message = (err as Error).message;
+            if (err instanceof AxiosError) {
+                const axiosError = err as AxiosError<{ message: string }>;
+                message = axiosError.response?.data?.message ?? message;
+            }
 
             this.log.warn('Polling error: ', message);
         }
