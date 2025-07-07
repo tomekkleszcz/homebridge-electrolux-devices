@@ -24,7 +24,8 @@ export abstract class ElectroluxAccessoryController {
         this.appliance = _appliance;
         this.state = _state;
 
-        this.accessory.context.capabilities = this.appliance;
+        this.accessory.context.appliance = this.appliance;
+        this.accessory.context.applianceType = this.item.applianceType;
     }
 
     async sendCommand(

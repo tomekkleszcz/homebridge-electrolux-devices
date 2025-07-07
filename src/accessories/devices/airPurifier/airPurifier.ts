@@ -5,7 +5,7 @@ import { Appliance } from '../../../definitions/appliance';
 import { ElectroluxAccessoryController } from '../../controller';
 import { isParticleFilter } from '../../../util/filters';
 import { ApplianceItem } from '../../../definitions/appliances';
-import { ApplianceState } from '../../../definitions/applianceState';
+import { ApplianceState, WorkMode } from '../../../definitions/applianceState';
 
 export class AirPurifier extends ElectroluxAccessoryController {
     private airPurifierService: Service;
@@ -148,6 +148,13 @@ export class AirPurifier extends ElectroluxAccessoryController {
         }
     }
 
+    private getAutoWorkmode(): WorkMode {
+        return this.appliance.capabilities.Workmode?.values['Smart'] !==
+            undefined
+            ? 'Smart'
+            : 'Auto';
+    }
+
     async getActive(): Promise<CharacteristicValue> {
         return this.state.properties.reported.Workmode === 'PowerOff'
             ? this.platform.Characteristic.Active.INACTIVE
@@ -164,13 +171,13 @@ export class AirPurifier extends ElectroluxAccessoryController {
             await this.sendCommand({
                 Workmode:
                     value === this.platform.Characteristic.Active.ACTIVE
-                        ? 'Auto'
+                        ? this.getAutoWorkmode()
                         : 'PowerOff'
             });
 
             this.state.properties.reported.Workmode =
                 value === this.platform.Characteristic.Active.ACTIVE
-                    ? 'Auto'
+                    ? this.getAutoWorkmode()
                     : 'PowerOff';
 
             this.airPurifierService.updateCharacteristic(
@@ -203,6 +210,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 return this.platform.Characteristic.CurrentAirPurifierState
                     .PURIFYING_AIR;
             case 'Auto':
+            case 'Smart':
                 return this.platform.Characteristic.CurrentAirPurifierState
                     .PURIFYING_AIR;
             case 'PowerOff':
@@ -217,6 +225,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 return this.platform.Characteristic.TargetAirPurifierState
                     .MANUAL;
             case 'Auto':
+            case 'Smart':
                 return this.platform.Characteristic.TargetAirPurifierState.AUTO;
             case 'PowerOff':
                 return this.platform.Characteristic.TargetAirPurifierState.AUTO;
@@ -230,7 +239,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 workMode = 'Manual';
                 break;
             case this.platform.Characteristic.TargetAirPurifierState.AUTO:
-                workMode = 'Auto';
+                workMode = this.getAutoWorkmode();
                 break;
         }
 
@@ -283,7 +292,9 @@ export class AirPurifier extends ElectroluxAccessoryController {
                 this.platform.Characteristic.TargetAirPurifierState.AUTO
             );
             return;
-        } else if (this.state.properties.reported.Workmode === 'Auto') {
+        } else if (
+            this.state.properties.reported.Workmode === this.getAutoWorkmode()
+        ) {
             await this.sendCommand({
                 Workmode: 'Manual'
             });
@@ -339,7 +350,7 @@ export class AirPurifier extends ElectroluxAccessoryController {
                     this.platform.Characteristic.TargetAirPurifierState.MANUAL
                 );
                 break;
-            case 'Auto':
+            case this.getAutoWorkmode():
                 this.airPurifierService.updateCharacteristic(
                     this.platform.Characteristic.Active,
                     this.platform.Characteristic.Active.ACTIVE
